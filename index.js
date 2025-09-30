@@ -77,6 +77,8 @@ const RX = {
 };
 
 function handleCHECK(m) {
+  console.log('[TS-MW] outgoing text =', payload.text);
+
   const [, who, skill, reason, ctxRaw] = m;
   loadWorld();
   const stats = get(world, `extensions.stats.${who}`);
@@ -211,6 +213,8 @@ function handleSET(m) {
 
 // ---------- ST lifecycle ----------
 async function init(api, extensionConfig) {
+  console.log('[TS-MW] init called');
+
   ST = api;
   cfg = Object.assign({}, cfg, extensionConfig || {});
   loadWorld();

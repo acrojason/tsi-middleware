@@ -1,0 +1,159 @@
+{
+  "meta": {
+    "arc_title": "Net Play",
+    "themes": ["tradecraft over spectacle", "sport as cover", "dual-use logistics"],
+    "threads": [
+      { "id": "A", "name": "Ghost Sponsor", "beats": [
+        "Rio: shell co. bankrolls beach tour stop",
+        "Veracruz: port handlers paid off",
+        "Nuvali: counterfeit medical sponsor",
+        "CapeTown: charity clinics as fronts",
+        "Mindelo: container swap final node"
+      ]},
+      { "id": "B", "name": "Doping-as-Disguise", "beats": [
+        "Rio lab tech goes missing",
+        "Veracruz: seized vials mislabelled",
+        "Nuvali: sample courier ambushed",
+        "CapeTown: lab QA whistle",
+        "Mindelo: real payload is weapon chips"
+      ]}
+    ]
+  },
+
+  "cities": {
+    "rio_de_janeiro": {
+      "public": {
+        "vibe": "Sun + favelas + security theatre; tournament on Copacabana.",
+        "hooks": ["VIP sponsor pavilion", "night vendors", "metros as tails"]
+      },
+      "gm": {
+        "secrets": [
+          "Shell sponsor 'BrisaMar' is a front tied to Arc A.",
+          "Security subcontracts to firm with ex-mil contacts.",
+          "A doping cooler contains decoy vials; real stash rides on a broadcast truck."
+        ],
+        "clocks": {
+          "alert": 0,
+          "shipment_window": 3
+        },
+        "setpieces": [
+          "Pavilion back-of-house with badge cloning",
+          "Broadcast truck yard guard-rotation schedule"
+        ]
+      },
+      "npcs": {
+        "rio.fix_viviane": {
+          "name": "Viviane ‘Vivi’ Santos",
+          "role": "Fixer / logistics broker",
+          "surface": "Laughs easily; knows crew chiefs; favors trade for info.",
+          "leverage": "Wants a customs flag cleared.",
+          "secrets": "She placed decoy coolers; can name the broadcast driver.",
+          "tags": "ally? cautious"
+        },
+        "rio.hr_ramos": {
+          "name": "Lt. Sérgio Ramos",
+          "role": "Security liaison (private contractor)",
+          "surface": "Ex-mil, clipped speech, cigar breath.",
+          "leverage": "Paid by BrisaMar shell.",
+          "secrets": "Will trigger alert clock if pressured; keeps badge printer."
+        }
+      }
+    },
+
+    "veracruz": {
+      "public": {
+        "vibe": "Port city rhythms; tournament near malecón; humid nights.",
+        "hooks": ["warehouse rows", "union cafés", "harbor patrol shifts"]
+      },
+      "gm": {
+        "secrets": [
+          "Crates labeled ‘sports nutrition’ contain chip trays.",
+          "Union treasurer laundering payouts for Gate 12 supervisors."
+        ],
+        "clocks": { "alert": 0, "harbor_sweep": 2 },
+        "setpieces": ["Gate 12 cameras dead zone", "Café back room counting day"]
+      },
+      "npcs": {
+        "veracruz.treas_mirada": {
+          "name": "Alicia Mirada",
+          "role": "Union treasurer",
+          "surface": "Ledger brain; guarded courtesy.",
+          "leverage": "Protects a cousin on security.",
+          "secrets": "Keeps a black book with payout initials."
+        }
+      }
+    },
+
+    "nuvali": {
+      "public": {
+        "vibe": "Master-planned lakeside; vendors and tech kiosks.",
+        "hooks": ["clinic tents", "courier scooters", "CCTV coverage gaps"]
+      },
+      "gm": {
+        "secrets": [
+          "Pop-up clinic brand is counterfeit; QR codes reroute samples.",
+          "Courier ring swaps vials at timed fountains."
+        ],
+        "clocks": { "alert": 1, "courier_cycle": 3 },
+        "setpieces": ["Fountain handoff carousel", "Mall rooftop repeater"]
+      },
+      "npcs": {
+        "nuvali.doc_belen": {
+          "name": "Dr. Belen Cruz",
+          "role": "Clinic lead / reluctant co-opted",
+          "surface": "Tired eyes; procedural stickler.",
+          "leverage": "Wants proof to expose the counterfeit brand.",
+          "secrets": "Knows of a ‘clean’ ledger server."
+        }
+      }
+    },
+
+    "cape_town": {
+      "public": {
+        "vibe": "Sea Point promenade; wind, cold spray; tournament pop-glam.",
+        "hooks": ["NGO vans", "harbor nights", "warehouse live bands"]
+      },
+      "gm": {
+        "secrets": [
+          "NGO mobile clinics double as relay nodes.",
+          "A customs officer is the quiet linchpin (Arc A & B intersect)."
+        ],
+        "clocks": { "alert": 1, "ombuds_visit": 4 },
+        "setpieces": ["NGO hub bay with inverter stacks", "Signal hill repeater"]
+      },
+      "npcs": {
+        "capetown.cust_mbeki": {
+          "name": "Officer Thandi Mbeki",
+          "role": "Customs analyst",
+          "surface": "Observant; presses for details.",
+          "leverage": "Career risk; wants a safe out.",
+          "secrets": "Knows container number pattern for Mindelo hop."
+        }
+      }
+    },
+
+    "mindelo": {
+      "public": {
+        "vibe": "Island hub; music in the streets; smaller port; close ties.",
+        "hooks": ["container yard catwalks", "ferry manifests", "night fishermen"]
+      },
+      "gm": {
+        "secrets": [
+          "Final swap occurs under festival cover.",
+          "Local fixer ‘Nho K’ runs a quiet watch service."
+        ],
+        "clocks": { "alert": 2, "festival_peak": 2 },
+        "setpieces": ["Festival stage backstage lanes", "Catwalk vantage triangle"]
+      },
+      "npcs": {
+        "mindelo.fix_nhok": {
+          "name": "‘Nho K’ (Kendry)",
+          "role": "Fixer / watch service",
+          "surface": "Understated, knows everyone.",
+          "leverage": "Old debt with port authority guard.",
+          "secrets": "Can place a spotter at the exact catwalk."
+        }
+      }
+    }
+  }
+}

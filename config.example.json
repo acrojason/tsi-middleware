@@ -1,0 +1,5 @@
+{
+  "worldFile": "world.json",
+  "logLevel": "info",
+  "enableNlpMapper": false
+}

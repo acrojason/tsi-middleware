@@ -404,13 +404,13 @@
     // Force paint when a chat loads (in case anything was injected before UI painted)
     const es = ctx.eventSource;
     const et = ctx.event_types || ctx.eventTypes;
-    es.on(et.chatLoaded || 'chatLoaded', () => {
-      const freshCtx = window.SillyTavern?.getContext?.();
-      if (freshCtx) {
-        console.log(`[${MOD}] chatLoaded → force render`);
-        forceRender(freshCtx);
-      }
-    });
+    // es.on(et.chatLoaded || 'chatLoaded', () => {
+    //  const freshCtx = window.SillyTavern?.getContext?.();
+    //  if (freshCtx) {
+    //    console.log(`[${MOD}] chatLoaded → force render`);
+    //    forceRender(freshCtx);
+    //  }
+    // });
 
     // Expose console helpers again
     globalThis.TSIMW = {

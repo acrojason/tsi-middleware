@@ -341,15 +341,8 @@
     const fab = document.createElement('button');
     fab.id = 'tsimw-fab';
     fab.type = 'button';
-    fab.textContent = 'Check';
-    fab.title = 'Open Top Secret/SI check modal';
-    Object.assign(fab.style, {
-      position:'fixed', right:'12px', bottom:'12px', padding:'8px 12px',
-      borderRadius:'999px', fontSize:'12px',
-      background:'var(--SmartThemeAccent)', color:'var(--SmartThemeBodyColor)',
-      border:'1px solid var(--SmartThemeBorderColor)', cursor:'pointer',
-      boxShadow:'0 4px 12px rgba(0,0,0,.25)', zIndex:9999
-    });
+    fab.textContent = 'Skill Check';  // <-- change text here
+    fab.title = 'Open Top Secret/SI skill check modal';
     fab.onclick = () => openModal(ctx);
     document.body.appendChild(fab);
   

@@ -114,36 +114,6 @@
     }
   }
 
-  // Accept push(ctx, "text", {name, extra}) OR push(ctx, {mes, name, extra})
-  function push(ctx, textOrMsg, opts = {}) {
-    const { eventSource, event_types } = ctx;
-    const base = (typeof textOrMsg === 'string') ? { mes: textOrMsg } : (textOrMsg || {});
-    const m = {
-      is_user: false,
-      is_system: false,
-      name: base.name || opts.name || ctx?.name2 || 'The Administrator',
-      send_date: nowStamp(),
-      mes: base.mes ?? '',
-      extra: { ...(base.extra || {}), ...(opts.extra || {}) },
-    };
-  
-    if (!m.mes) {
-      console.warn(`[${MOD}] push(): empty message text`);
-      return;
-    }
-  
-    try {
-      ctx.chat?.push?.(m);
-      eventSource?.emit?.(event_types?.MESSAGE_RECEIVED || 'message_received', m);
-      
-      // Call the render function on the context!
-      forceRender(ctx);
-    } catch (e) {
-      console.warn(`[${MOD}] push failed`, e);
-      ctx.addToast?.(m.mes) || alert(m.mes);
-    }
-  }
-
   // ---------------------------
   // Modal
   // ---------------------------
@@ -294,9 +264,8 @@
   // Middleware call
   // ---------------------------
   async function sendCheck(ctx, check) {
-    // Get fresh context instead of using the passed one
+    // Get fresh context
     const freshCtx = window.SillyTavern?.getContext?.() || ctx;
-    console.log('[TSI-MW] Using fresh context, name2:', freshCtx?.name2);
     
     const url = (loadConfig().httpUrl || '').trim();
     if (!url) { 
@@ -304,7 +273,8 @@
       return; 
     }
   
-    push(freshCtx,  // <-- Use freshCtx instead of ctx
+    // Push initial request message (don't render yet)
+    pushSilent(freshCtx,
       `[CHECK who=${check.character} skill=${check.skill} reason="${check.reason.replace(/"/g, "'")}"]` +
       `\nRolled **${check.roll}** vs **${check.threshold}%** — sending to rules engine…`,
       { 
@@ -325,25 +295,57 @@
       const s = data.success ? 'SUCCESS' : 'FAILURE';
       const tag = `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} vs=${check.threshold} result=${s}${data.quality ? ` quality=${data.quality}` : ''}]`;
   
-      push(freshCtx, tag, {  // <-- freshCtx
+      // Push result messages (still don't render)
+      pushSilent(freshCtx, tag, {
         name: freshCtx?.name2 || 'The Administrator',
         extra: { module: 'tsi-middleware', kind: 'check_result_raw' } 
       });
   
       const margin = (typeof data.margin === 'number') ? ` (margin ${data.margin})` : '';
-      push(freshCtx,  // <-- freshCtx
+      pushSilent(freshCtx,
         `Outcome for ${check.character}: **${s}** on **${check.skill}** (rolled ${check.roll} vs ${check.threshold}%${margin}). ${data.details || ''}`,
         { 
           name: freshCtx?.name2 || 'The Administrator',
           extra: { module: 'tsi-middleware', kind: 'check_result_human' } 
         }
       );
+      
+      // NOW render everything at once
+      forceRender(freshCtx);
+      
     } catch (e) {
       console.error(`[${MOD}] sendCheck error`, e);
-      push(freshCtx, `❌ Network error talking to rules engine: ${e?.message || e}`, {  // <-- freshCtx
+      pushSilent(freshCtx, `❌ Network error talking to rules engine: ${e?.message || e}`, {
         name: freshCtx?.name2 || 'The Administrator',
         extra: { module: 'tsi-middleware', kind: 'check_error' } 
       });
+      forceRender(freshCtx);
+    }
+  }
+  
+  // New function: push without rendering
+  function pushSilent(ctx, textOrMsg, opts = {}) {
+    const { eventSource, event_types } = ctx;
+    const base = (typeof textOrMsg === 'string') ? { mes: textOrMsg } : (textOrMsg || {});
+    const m = {
+      is_user: false,
+      is_system: false,
+      name: base.name || opts.name || ctx?.name2 || 'The Administrator',
+      send_date: nowStamp(),
+      mes: base.mes ?? '',
+      extra: { ...(base.extra || {}), ...(opts.extra || {}) },
+    };
+  
+    if (!m.mes) {
+      console.warn(`[${MOD}] pushSilent(): empty message text`);
+      return;
+    }
+  
+    try {
+      ctx.chat?.push?.(m);
+      eventSource?.emit?.(event_types?.MESSAGE_RECEIVED || 'message_received', m);
+    } catch (e) {
+      console.warn(`[${MOD}] pushSilent failed`, e);
     }
   }
 

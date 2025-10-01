@@ -1,13 +1,9 @@
 {
+  "id": "ts_middleware",
   "name": "TS Middleware (WorldBible + Mechanics)",
   "version": "0.1.0",
   "description": "Hidden world bible + rules engine for Top Secret/S.I.",
   "author": "you",
-  "entry": "index.js",
-  "requires": [],
-  "config": {
-    "worldFile": "world.json",
-    "logLevel": "info",
-    "enableNlpMapper": false
-  }
+  "entrypoint": "index.js",
+  "requires": []
 }

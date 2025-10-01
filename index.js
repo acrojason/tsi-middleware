@@ -289,7 +289,10 @@
   // Middleware call
   // ---------------------------
   async function sendCheck(ctx, check) {
-    console.log('[TSI-MW] sendCheck ctx.name2:', ctx?.name2);
+    console.log('[TSI-MW] sendCheck received ctx:', {
+      name2: ctx?.name2,
+      isRealContext: ctx === window.SillyTavern?.getContext?.()
+    });
     const url = (loadConfig().httpUrl || '').trim();
     if (!url) { ctx.addToast?.('TSI-MW: No middleware URL configured.'); return; }
   

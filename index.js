@@ -405,8 +405,11 @@
     const es = ctx.eventSource;
     const et = ctx.event_types || ctx.eventTypes;
     es.on(et.chatLoaded || 'chatLoaded', () => {
-      console.log(`[${MOD}] chatLoaded → force render`);
-      forceRender();
+      const freshCtx = window.SillyTavern?.getContext?.();
+      if (freshCtx) {
+        console.log(`[${MOD}] chatLoaded → force render`);
+        forceRender(freshCtx);
+      }
     });
 
     // Expose console helpers again

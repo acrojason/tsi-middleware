@@ -289,18 +289,21 @@
   // Middleware call
   // ---------------------------
   async function sendCheck(ctx, check) {
-    console.log('[TSI-MW] sendCheck received ctx:', {
-      name2: ctx?.name2,
-      isRealContext: ctx === window.SillyTavern?.getContext?.()
-    });
+    // Get fresh context instead of using the passed one
+    const freshCtx = window.SillyTavern?.getContext?.() || ctx;
+    console.log('[TSI-MW] Using fresh context, name2:', freshCtx?.name2);
+    
     const url = (loadConfig().httpUrl || '').trim();
-    if (!url) { ctx.addToast?.('TSI-MW: No middleware URL configured.'); return; }
+    if (!url) { 
+      freshCtx.addToast?.('TSI-MW: No middleware URL configured.'); 
+      return; 
+    }
   
-    push(ctx,
+    push(freshCtx,  // <-- Use freshCtx instead of ctx
       `[CHECK who=${check.character} skill=${check.skill} reason="${check.reason.replace(/"/g, "'")}"]` +
       `\nRolled **${check.roll}** vs **${check.threshold}%** — sending to rules engine…`,
       { 
-        name: ctx?.name2 || 'The Administrator',  // <-- Add this!
+        name: freshCtx?.name2 || 'The Administrator',
         extra: { module: 'tsi-middleware', kind: 'check_request' } 
       }
     );
@@ -316,28 +319,24 @@
   
       const s = data.success ? 'SUCCESS' : 'FAILURE';
       const tag = `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} vs=${check.threshold} result=${s}${data.quality ? ` quality=${data.quality}` : ''}]`;
-
-      console.log('[TSI-MW] About to push with name:', ctx?.name2 || 'The Administrator');
-      
-      // Machine-readable line - USE CHARACTER NAME
-      push(ctx, tag, { 
-        name: ctx?.name2 || 'The Administrator',  // <-- Add this!
+  
+      push(freshCtx, tag, {  // <-- freshCtx
+        name: freshCtx?.name2 || 'The Administrator',
         extra: { module: 'tsi-middleware', kind: 'check_result_raw' } 
       });
   
-      // Human summary - USE CHARACTER NAME
       const margin = (typeof data.margin === 'number') ? ` (margin ${data.margin})` : '';
-      push(ctx,
+      push(freshCtx,  // <-- freshCtx
         `Outcome for ${check.character}: **${s}** on **${check.skill}** (rolled ${check.roll} vs ${check.threshold}%${margin}). ${data.details || ''}`,
         { 
-          name: ctx?.name2 || 'The Administrator',  // <-- And this!
+          name: freshCtx?.name2 || 'The Administrator',
           extra: { module: 'tsi-middleware', kind: 'check_result_human' } 
         }
       );
     } catch (e) {
       console.error(`[${MOD}] sendCheck error`, e);
-      push(ctx, `❌ Network error talking to rules engine: ${e?.message || e}`, { 
-        name: ctx?.name2 || 'The Administrator',  // <-- And this!
+      push(freshCtx, `❌ Network error talking to rules engine: ${e?.message || e}`, {  // <-- freshCtx
+        name: freshCtx?.name2 || 'The Administrator',
         extra: { module: 'tsi-middleware', kind: 'check_error' } 
       });
     }

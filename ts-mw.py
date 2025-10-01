@@ -40,3 +40,8 @@ def check():
         "details": details,
         "stamp": datetime.utcnow().isoformat()
     })
+
+if __name__ == "__main__":
+    # choose your port; 5050 matches your ST config
+    app.run(host="0.0.0.0", port=5050)
+

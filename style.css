@@ -1,0 +1,22 @@
+/* Simple modal styling */
+#tsimw-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: none; align-items: center; justify-content: center; z-index: 10000;
+}
+#tsimw-modal {
+  width: 520px; max-width: 95vw; background: var(--SmartThemeBodyColor);
+  color: var(--SmartThemeFontColor); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  padding: 16px;
+}
+#tsimw-modal h3 { margin: 0 0 8px 0; font-size: 18px; }
+#tsimw-modal .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+#tsimw-modal label { font-size: 12px; opacity: .8; display:block; margin-bottom: 4px; }
+#tsimw-modal input, #tsimw-modal select, #tsimw-modal textarea {
+  width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor);
+  background: var(--SmartThemeInputColor); color: inherit;
+}
+#tsimw-modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+#tsimw-btn {
+  margin-left: 6px; padding: 6px 10px; border-radius: 10px; cursor: pointer; border: 1px solid var(--SmartThemeBorderColor);
+  background: var(--SmartThemeAccent); color: var(--SmartThemeBodyColor); font-size: 12px;
+}

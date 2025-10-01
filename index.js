@@ -20,6 +20,47 @@
     eventSource.on(event_types.APP_READY, () => run(st.getContext()));
   }
 
+  function nowStamp() {
+    try {
+      // Same format ST uses in your dump: "October 1, 2025 1:27pm"
+      return new Date().toLocaleString(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true
+      });
+    } catch { return new Date().toString(); }
+  }
+
+  // Robust message injector for your ST build
+  function push(ctx, text, { system = false, name = 'TSI-MW', extra = {} } = {}) {
+    // 1) Preferred (if a helper exists in future builds)
+    if (ctx.pushToChat) {
+      ctx.pushToChat({ is_user: false, is_system: system, name, mes: text, extra });
+      return;
+    }
+    if (window.addAssistantMessage) {
+      window.addAssistantMessage(text); // legacy fallback
+      return;
+    }
+  
+    // 2) Universal: mutate chat array + emit MESSAGE_RECEIVED
+    const msg = {
+      name,
+      is_user: false,
+      is_system: system,
+      send_date: nowStamp(),
+      mes: text,
+      extra
+    };
+    try {
+      ctx.chat.push(msg);
+      const { eventSource, event_types } = ctx;
+      eventSource?.emit?.(event_types.MESSAGE_RECEIVED, msg);
+    } catch (e) {
+      console.warn('[TSI-MW] push fallback failed:', e);
+      ctx.addToast?.(text) || alert(text);
+    }
+  }
+
   // ---- Character & skill helpers ----
   function getCharacters(ctx) {
     // Prefer real ST characters if present; else read our local list
@@ -249,12 +290,11 @@
     const stamp = new Date().toISOString();
 
     // Tell the LLM what we asked for (structured + human)
-    ctx.pushToChat?.({
-      is_user: false,
-      name: 'System',
-      mes: `[CHECK who=${check.character} skill=${check.skill} reason="${check.reason.replace(/"/g,'\'')}"]\nRolled **${check.roll}** vs threshold **${check.threshold}%** — sending to rules engine…`,
-      extra: { module: 'tsi-middleware', kind: 'check_request', stamp }
-    });
+    push(ctx,
+      `[CHECK who=${check.character} skill=${check.skill} reason="${(check.reason||'').replace(/"/g, '\'')}"]\n` +
+      `Rolled **${check.roll}** vs threshold **${check.threshold}%** — sending to rules engine…`,
+      { system: true, name: 'System', extra: { module: 'tsi-middleware', kind: 'check_request' } }
+    );
 
     if (cfg.mode === 'http') {
       try {
@@ -294,33 +334,31 @@
 
   function handleEngineResult(ctx, check, res) {
     if (!res || res.ok === false) {
-      ctx.pushToChat?.({
-        is_user:false, name:'TSI-MW',
-        mes:`❌ Check failed to evaluate (${res?.error || 'unknown error'}). Please adjudicate manually.`,
-        extra:{ module:'tsi-middleware', kind:'check_error' }
-      });
+      push(ctx, `❌ Check failed to evaluate (${res?.error || 'unknown error'}). Please adjudicate manually.`,
+           { name: 'TSI-MW', extra: { module: 'tsi-middleware', kind: 'check_error' } });
       return;
     }
-    // Expected engine shape:
-    // { type:'check_result', ok:true, success:boolean, margin:number, details?:string, quality?:'crit'|'normal'|'fumble' }
+    
     const s = res.success ? 'SUCCESS' : 'FAILURE';
     const margin = (typeof res.margin === 'number') ? ` (margin ${res.margin})` : '';
-    const tag = `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} vs=${check.threshold} result=${s}${res.quality?` quality=${res.quality}`:''}]`;
-
-    // 1) Machine-readable line for the LLM to condition on
-    ctx.pushToChat?.({
-      is_user:false, name:'System',
-      mes: tag,
-      extra:{ module:'tsi-middleware', kind:'check_result_raw' }
-    });
-
-    // 2) Human summary for the table
-    const line = `${check.character} attempts **${check.skill}** → rolled **${check.roll}** vs **${check.threshold}%** → **${s}**${margin}. ${res.details||''}`.trim();
-    ctx.pushToChat?.({
-      is_user:false, name:'TSI-MW',
-      mes: line,
-      extra:{ module:'tsi-middleware', kind:'check_result_human' }
-    });
+    const tag =
+      `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} ` +
+      `vs=${check.threshold} result=${s}${res.quality ? ` quality=${res.quality}` : ''}]`;
+    
+    // Machine-readable line for the LLM to latch onto (mark as system)
+    push(ctx, tag, { system: true, name: 'System', extra: { module: 'tsi-middleware', kind: 'check_result_raw' } });
+    
+    // Human summary (nice for you + the model)
+    const line =
+      `Outcome for ${check.character}: **${s}** on **${check.skill}** ` +
+      `(rolled ${check.roll} vs ${check.threshold}%${margin}). ${res.details || ''}`.trim();
+    
+    push(ctx, line, { name: 'TSI-MW', extra: { module: 'tsi-middleware', kind: 'check_result_human' } });
+    
+    // Optional toast for visibility while testing
+    ctx.addToast?.(`TSI-MW: ${s}${margin}`);
+    console.log('[TSI-MW] handled result:', res);ddleware', kind:'check_result_human' }
+        });
   }
 
   // ---- Bootstrap ----

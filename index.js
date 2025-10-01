@@ -221,11 +221,12 @@ async function init(api, extensionConfig) {
   log('Loaded world from', WPATH());
 
   // Hook: before sending to the model (so we can inject computed lines)
-  ST.registerHook('middleware:outgoing', async (payload, next) => {
-    // payload: { text, meta, state }
-    const t = payload.text || '';
+  ST.registerHook('message:send', async (payload, next) => {
+    // payload: { type: 'user'|'system'|'assistant', text: string, ... }
+    if (!payload?.text) return next(payload);
+    const t = payload.text;
+  
     let resp = null;
-
     if (RX.CHECK.test(t)) resp = handleCHECK(t.match(RX.CHECK));
     else if (RX.REQ_NPC.test(t)) resp = handleREQ_NPC(t.match(RX.REQ_NPC));
     else if (RX.REQ_NPC_SECRET.test(t)) resp = handleREQ_NPC_SECRET(t.match(RX.REQ_NPC_SECRET));
@@ -233,10 +234,9 @@ async function init(api, extensionConfig) {
     else if (RX.REQ_ARC.test(t)) resp = handleREQ_ARC(t.match(RX.REQ_ARC));
     else if (RX.TICK.test(t)) resp = handleTICK(t.match(RX.TICK));
     else if (RX.SET.test(t)) resp = handleSET(t.match(RX.SET));
-
+  
     if (resp) {
-      // Replace the outgoing text with the computed control line result,
-      // then let the model see ONLY that result (so it narrates around it).
+      // Replace the outgoing user message with the computed control-line result.
       payload.text = resp;
       return next(payload);
     }

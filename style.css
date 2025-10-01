@@ -1,22 +1,49 @@
-/* Simple modal styling */
+/* Safer theme defaults with fallbacks so text is always visible */
+:root {
+  --tsimw-bg: var(--SmartThemeWindowColor, #1e1e1e);
+  --tsimw-fg: var(--SmartThemeFontColor, #f0f0f0);
+  --tsimw-input: var(--SmartThemeInputColor, rgba(255,255,255,.06));
+  --tsimw-border: var(--SmartThemeBorderColor, rgba(255,255,255,.15));
+  --tsimw-accent: var(--SmartThemeAccent, #5271ff);
+  --tsimw-body: var(--SmartThemeBodyColor, #ffffff);
+}
+
 #tsimw-modal-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,.45);
   display: none; align-items: center; justify-content: center; z-index: 10000;
 }
+
 #tsimw-modal {
-  width: 520px; max-width: 95vw; background: var(--SmartThemeBodyColor);
-  color: var(--SmartThemeFontColor); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
-  padding: 16px;
+  width: 520px; max-width: 95vw; background: var(--tsimw-bg);
+  color: var(--tsimw-fg); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  padding: 16px; border: 1px solid var(--tsimw-border);
 }
-#tsimw-modal h3 { margin: 0 0 8px 0; font-size: 18px; }
-#tsimw-modal .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-#tsimw-modal label { font-size: 12px; opacity: .8; display:block; margin-bottom: 4px; }
+
+#tsimw-modal h3 { margin: 0 0 10px 0; font-size: 18px; }
+#tsimw-modal .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+
+#tsimw-modal label {
+  font-size: 12px; opacity: 1; display:block; margin-bottom: 4px; color: var(--tsimw-fg);
+}
+
 #tsimw-modal input, #tsimw-modal select, #tsimw-modal textarea {
-  width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor);
-  background: var(--SmartThemeInputColor); color: inherit;
+  width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--tsimw-border);
+  background: var(--tsimw-input); color: var(--tsimw-fg);
 }
-#tsimw-modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
+#tsimw-modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
 #tsimw-btn {
-  margin-left: 6px; padding: 6px 10px; border-radius: 10px; cursor: pointer; border: 1px solid var(--SmartThemeBorderColor);
-  background: var(--SmartThemeAccent); color: var(--SmartThemeBodyColor); font-size: 12px;
+  margin-left: 6px; padding: 6px 10px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--tsimw-border);
+  background: var(--tsimw-accent); color: var(--tsimw-body); font-size: 12px;
 }
+
+/* Floating “Check” fallback button in bottom-right */
+#tsimw-fab {
+  position: fixed; right: 12px; bottom: 12px; z-index: 9999; cursor: pointer;
+  padding: 8px 12px; border-radius: 999px; font-size: 12px;
+  background: var(--tsimw-accent); color: var(--tsimw-body); border: 1px solid var(--tsimw-border);
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+}
+#tsimw-fab:hover { filter: brightness(1.05); }

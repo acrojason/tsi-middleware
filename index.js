@@ -1,28 +1,113 @@
-// scripts/extensions/third-party/tsi-middleware/index.js
+// third-party/tsi-middleware/index.js
 (() => {
   const MOD = 'TSI-MW';
 
-  // ---- Config (edit in UI later if you want) ----
-  const DEFAULT_WS = 'ws://127.0.0.1:5050';
-  const DEFAULT_HTTP = 'http://127.0.0.1:5050/check';
-  function getCfg() {
-    const raw = localStorage.getItem('tsimw.config');
-    try { return raw ? JSON.parse(raw) : { mode:'ws', wsUrl:DEFAULT_WS, httpUrl:DEFAULT_HTTP }; }
-    catch { return { mode:'ws', wsUrl:DEFAULT_WS, httpUrl:DEFAULT_HTTP }; }
-  }
-  function setCfg(cfg){ localStorage.setItem('tsimw.config', JSON.stringify(cfg)); }
+  // -----------------------------
+  // Utility / Context bootstrap
+  // -----------------------------
+  function onReady(cb) {
+    const tryInit = () => {
+      const ctx = window.SillyTavern?.getContext?.();
+      if (!ctx) return false;
+      const es = ctx.eventSource;
+      const et = ctx.event_types || ctx.eventTypes;
+      if (!es || !et) return false;
 
-  // ---- App readiness ----
-  function onReady(run) {
-    const st = window.SillyTavern;
-    if (!st?.getContext) return setTimeout(()=>onReady(run), 150);
-    const { eventSource, event_types } = st.getContext();
-    eventSource.on(event_types.APP_READY, () => run(st.getContext()));
+      // If app_ready has already fired in some builds
+      if (ctx.isAppReady) {
+        cb(ctx);
+        return true;
+      }
+
+      // Otherwise subscribe to APP_READY
+      es.on(et.APP_READY || 'app_ready', () => cb(ctx));
+      return true;
+    };
+
+    if (!tryInit()) {
+      // Fallback: try again when DOM is ready
+      document.addEventListener('DOMContentLoaded', () => setTimeout(tryInit, 0));
+    }
   }
 
+  // -----------------------------
+  // Styles (safe dark/light defaults)
+  // -----------------------------
+  function injectStyles() {
+    if (document.getElementById('tsimw-styles')) return;
+    const css = `
+:root{
+  --tsimw-bg: var(--SmartThemeWindowColor, #1e1e1e);
+  --tsimw-fg: var(--SmartThemeFontColor, #f0f0f0);
+  --tsimw-input: var(--SmartThemeInputColor, rgba(255,255,255,.06));
+  --tsimw-border: var(--SmartThemeBorderColor, rgba(255,255,255,.2));
+  --tsimw-accent: var(--SmartThemeAccent, #5271ff);
+  --tsimw-body: var(--SmartThemeBodyColor, #ffffff);
+}
+#tsimw-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:10000;}
+#tsimw-modal{width:520px;max-width:95vw;background:var(--tsimw-bg);color:var(--tsimw-fg);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:16px;border:1px solid var(--tsimw-border);}
+#tsimw-modal h3{margin:0 0 10px 0;font-size:18px;}
+#tsimw-modal .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+#tsimw-modal label{font-size:12px;opacity:1;display:block;margin-bottom:4px;color:var(--tsimw-fg);}
+#tsimw-modal input,#tsimw-modal select,#tsimw-modal textarea{width:100%;padding:8px;border-radius:8px;border:1px solid var(--tsimw-border);background:var(--tsimw-input);color:var(--tsimw-fg);}
+#tsimw-modal textarea{resize:vertical;min-height:64px;}
+#tsimw-modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+#tsimw-modal .actions button{padding:8px 12px;border-radius:8px;border:1px solid var(--tsimw-border);background:var(--tsimw-input);color:var(--tsimw-fg);cursor:pointer;font-weight:600;}
+#tsimw-modal #tsimw-submit{background:var(--tsimw-accent);color:var(--tsimw-body);border-color:var(--tsimw-accent);}
+#tsimw-modal .actions button:hover{filter:brightness(1.08);}
+#tsimw-fab{position:fixed;right:12px;bottom:12px;z-index:9999;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;background:var(--tsimw-accent);color:var(--tsimw-body);border:1px solid var(--tsimw-accent);box-shadow:0 4px 12px rgba(0,0,0,.35);cursor:pointer;}
+#tsimw-fab:hover{filter:brightness(1.1);}
+#tsimw-btn{margin-left:6px;padding:6px 10px;border-radius:10px;cursor:pointer;border:1px solid var(--tsimw-border);background:var(--tsimw-accent);color:var(--tsimw-body);font-size:12px;}
+`;
+    const style = document.createElement('style');
+    style.id = 'tsimw-styles';
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  // -----------------------------
+  // Local storage helpers
+  // -----------------------------
+  function loadCharacters() {
+    try {
+      const raw = localStorage.getItem('tsimw.characters');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    // Minimal default for first-time test
+    const def = [{ name: 'Agent Drake', skills: { Surveillance: 62 } }];
+    localStorage.setItem('tsimw.characters', JSON.stringify(def));
+    return def;
+  }
+
+  function saveCharacters(arr) {
+    localStorage.setItem('tsimw.characters', JSON.stringify(arr || []));
+  }
+
+  function loadConfig() {
+    const def = { mode: 'http', httpUrl: 'http://127.0.0.1:5050/check', wsUrl: 'ws://127.0.0.1:5050' };
+    try {
+      const raw = localStorage.getItem('tsimw.config');
+      if (!raw) {
+        localStorage.setItem('tsimw.config', JSON.stringify(def));
+        return def;
+      }
+      const obj = JSON.parse(raw);
+      return Object.assign({}, def, obj);
+    } catch {
+      localStorage.setItem('tsimw.config', JSON.stringify(def));
+      return def;
+    }
+  }
+
+  function saveConfig(cfg) {
+    localStorage.setItem('tsimw.config', JSON.stringify(cfg));
+  }
+
+  // -----------------------------
+  // Chat injection (robust)
+  // -----------------------------
   function nowStamp() {
     try {
-      // Same format ST uses in your dump: "October 1, 2025 1:27pm"
       return new Date().toLocaleString(undefined, {
         year: 'numeric', month: 'long', day: 'numeric',
         hour: 'numeric', minute: '2-digit', hour12: true
@@ -30,365 +115,319 @@
     } catch { return new Date().toString(); }
   }
 
-  // Robust message injector for your ST build
   function push(ctx, text, { system = false, name = 'TSI-MW', extra = {} } = {}) {
-    // 1) Preferred (if a helper exists in future builds)
+    if (!ctx) { console.warn(`[${MOD}] no ctx; using alert fallback`); alert(text); return; }
+
+    // Preferred if present
     if (ctx.pushToChat) {
       ctx.pushToChat({ is_user: false, is_system: system, name, mes: text, extra });
       return;
     }
     if (window.addAssistantMessage) {
-      window.addAssistantMessage(text); // legacy fallback
+      window.addAssistantMessage(text);
       return;
     }
-  
-    // 2) Universal: mutate chat array + emit MESSAGE_RECEIVED
-    const msg = {
-      name,
-      is_user: false,
-      is_system: system,
-      send_date: nowStamp(),
-      mes: text,
-      extra
-    };
+
+    // Universal: mutate chat and emit MESSAGE_RECEIVED
+    const msg = { name, is_user: false, is_system: system, send_date: nowStamp(), mes: text, extra };
     try {
       ctx.chat.push(msg);
-      const { eventSource, event_types } = ctx;
-      eventSource?.emit?.(event_types.MESSAGE_RECEIVED, msg);
+      const es = ctx.eventSource;
+      const et = ctx.event_types || ctx.eventTypes;
+      es?.emit?.(et?.MESSAGE_RECEIVED || 'message_received', msg);
     } catch (e) {
-      console.warn('[TSI-MW] push fallback failed:', e);
+      console.warn(`[${MOD}] push fallback failed:`, e);
       ctx.addToast?.(text) || alert(text);
     }
   }
 
-  // ---- Character & skill helpers ----
-  function getCharacters(ctx) {
-    // Prefer real ST characters if present; else read our local list
-    if (Array.isArray(ctx.characters) && ctx.characters.length) return ctx.characters;
-    const raw = localStorage.getItem('tsimw.characters');
-    try { return raw ? JSON.parse(raw) : []; } catch { return []; }
-  }
-  // Look for skill % on character. Adapt this to your schema.
-  function getSkillThreshold(character, skillName) {
-    // Try a few common shapes:
-    // 1) character.skills[skillName] = { value: 47 } or = 47
-    const s1 = character?.skills?.[skillName];
-    if (typeof s1 === 'number') return s1;
-    if (typeof s1?.value === 'number') return s1.value;
-
-    // 2) character.extra?.tsi?.skills[skillName] = 47
-    const s2 = character?.extra?.tsi?.skills?.[skillName];
-    if (typeof s2 === 'number') return s2;
-
-    // Fallback: empty
-    return '';
-  }
-  function listSkillNames(characters) {
-    // naive union of present skill keys to seed the dropdown
-    const set = new Set();
-    for (const c of characters) {
-      const s = c?.skills ?? c?.extra?.tsi?.skills ?? {};
-      Object.keys(s).forEach(k => set.add(k));
-    }
-    // provide some common TS/SI skills if none are stored yet:
-    if (!set.size) ['Surveillance','Stealth','Disguise','Electronics','Forgery','Persuasion','Firearms','Driving'].forEach(k=>set.add(k));
-    return Array.from(set).sort();
-  }
-
-  // ---- UI ----
-  function addHeaderButton(ctx) {
-  const candidates = [
-    '#extensionsApiButtons',
-    '#btnContainer',
-    '#extensionsMenu',
-    '#rightNav',
-    '#menu_bar',
-    'header',               // fallback
-  ];
-  let bar = candidates.map(sel => document.querySelector(sel)).find(Boolean) || document.body;
-
-  const btn = document.createElement('button');
-  btn.id = 'tsimw-btn';
-  btn.type = 'button';
-  btn.textContent = 'Check';
-  btn.title = 'Top Secret/SI Skill Check';
-  btn.onclick = () => openModal(ctx);
-  btn.style.marginLeft = '6px';
-  btn.className = 'menu_button'; // helps styling in some themes
-  bar.appendChild(btn);
-}
-
-
-  function buildModalDom() {
+  // -----------------------------
+  // Modal UI
+  // -----------------------------
+  function buildModal(ctx) {
     if (document.getElementById('tsimw-modal-backdrop')) return;
 
     const backdrop = document.createElement('div');
     backdrop.id = 'tsimw-modal-backdrop';
+
     const modal = document.createElement('div');
     modal.id = 'tsimw-modal';
-
     modal.innerHTML = `
-      <h3>Top Secret/SI — Skill Check</h3>
+      <h3>Top Secret/S.I. — Skill Check</h3>
+
       <div class="row">
         <div>
-          <label>Character</label>
+          <label for="tsimw-char">Character</label>
           <select id="tsimw-char"></select>
         </div>
         <div>
-          <label>Skill</label>
+          <label for="tsimw-skill">Skill</label>
           <select id="tsimw-skill"></select>
         </div>
       </div>
+
       <div class="row">
         <div>
-          <label>Threshold %</label>
-          <input id="tsimw-threshold" type="number" min="0" max="100" placeholder="auto" />
+          <label for="tsimw-threshold">Threshold %</label>
+          <input id="tsimw-threshold" type="number" min="0" max="100" step="1" />
         </div>
         <div>
-          <label>Roll (d%)</label>
-          <input id="tsimw-roll" type="number" min="1" max="100" placeholder="e.g., 37" />
+          <label for="tsimw-roll">Roll (d%)</label>
+          <input id="tsimw-roll" type="number" min="1" max="100" step="1" />
         </div>
       </div>
-      <div>
-        <label>Reason / Context (optional)</label>
-        <textarea id="tsimw-reason" rows="3" placeholder="Why the check?"></textarea>
+
+      <div class="row" style="grid-template-columns: 1fr;">
+        <div>
+          <label for="tsimw-reason">Reason / Context (optional)</label>
+          <textarea id="tsimw-reason" placeholder="e.g., Shadow the courier through the bazaar"></textarea>
+        </div>
       </div>
+
       <div class="row">
         <div>
-          <label>Middleware</label>
-          <select id="tsimw-mode">
-            <option value="ws">WebSocket</option>
-            <option value="http">HTTP</option>
-          </select>
+          <label for="tsimw-url">Middleware URL (HTTP)</label>
+          <input id="tsimw-url" type="text" placeholder="http://127.0.0.1:5050/check" />
         </div>
         <div>
-          <input id="tsimw-url" placeholder="ws://127.0.0.1:5050 or http://127.0.0.1:5050/check" />
+          <label>&nbsp;</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button id="tsimw-saveurl" type="button" title="Save URL">Save URL</button>
+            <span id="tsimw-url-hint" style="font-size:12px;opacity:.8;">Used for HTTP POST</span>
+          </div>
         </div>
       </div>
+
       <div class="actions">
-        <button id="tsimw-cancel">Cancel</button>
-        <button id="tsimw-submit">Submit</button>
+        <button id="tsimw-cancel" type="button">Cancel</button>
+        <button id="tsimw-submit" type="button">Submit</button>
       </div>
     `;
 
     backdrop.appendChild(modal);
     document.body.appendChild(backdrop);
 
-    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(); });
-    document.getElementById('tsimw-cancel').onclick = closeModal;
+    // Wiring
+    const charSel = modal.querySelector('#tsimw-char');
+    const skillSel = modal.querySelector('#tsimw-skill');
+    const threshold = modal.querySelector('#tsimw-threshold');
+    const roll = modal.querySelector('#tsimw-roll');
+    const reason = modal.querySelector('#tsimw-reason');
+    const urlInput = modal.querySelector('#tsimw-url');
+
+    const cfg = loadConfig();
+    urlInput.value = cfg.httpUrl || '';
+
+    const chars = loadCharacters();
+    function fillChars() {
+      charSel.innerHTML = '';
+      chars.forEach((c, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = c.name || `Char ${i + 1}`;
+        charSel.appendChild(opt);
+      });
+    }
+    function fillSkills() {
+      skillSel.innerHTML = '';
+      const c = chars[Number(charSel.value) || 0] || { skills: {} };
+      const entries = Object.entries(c.skills || {});
+      if (entries.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '(No skills)';
+        skillSel.appendChild(opt);
+        threshold.value = '';
+        return;
+      }
+      for (const [name, pct] of entries) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        opt.dataset.pct = String(pct);
+        skillSel.appendChild(opt);
+      }
+      // Set threshold to selected skill
+      const pct = Number(skillSel.options[skillSel.selectedIndex]?.dataset?.pct || 0);
+      threshold.value = String(pct);
+    }
+
+    fillChars();
+    fillSkills();
+
+    charSel.addEventListener('change', fillSkills);
+    skillSel.addEventListener('change', () => {
+      const pct = Number(skillSel.options[skillSel.selectedIndex]?.dataset?.pct || 0);
+      threshold.value = String(pct);
+    });
+
+    modal.querySelector('#tsimw-cancel').onclick = closeModal;
+    modal.querySelector('#tsimw-saveurl').onclick = () => {
+      const cfg2 = loadConfig();
+      cfg2.httpUrl = urlInput.value.trim();
+      saveConfig(cfg2);
+      ctx.addToast?.('TSI-MW: URL saved');
+    };
+    modal.querySelector('#tsimw-submit').onclick = async () => {
+      const c = chars[Number(charSel.value) || 0];
+      const skill = skillSel.value;
+      const thr = Math.max(0, Math.min(100, Number(threshold.value || 0)));
+      const r = Math.max(1, Math.min(100, Number(roll.value || 0)));
+
+      if (!c || !skill) {
+        ctx.addToast?.('Select a character and skill.');
+        return;
+      }
+      const check = {
+        type: 'check',
+        character: c.name || 'Unknown',
+        skill,
+        threshold: thr,
+        roll: r,
+        reason: (reason.value || '').trim()
+      };
+      await sendCheck(ctx, check);
+      closeModal();
+    };
+
+    function closeModal() {
+      backdrop.style.display = 'none';
+    }
+
+    // expose open/close for reuse
+    modal.__open = () => { backdrop.style.display = 'flex'; };
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) backdrop.style.display = 'none';
+    });
+
+    return modal;
   }
 
   function openModal(ctx) {
-    buildModalDom();
-    const cfg = getCfg();
-    const chars = getCharacters(ctx);
-    const skills = listSkillNames(chars);
-
-    const elBackdrop = document.getElementById('tsimw-modal-backdrop');
-    const elChar = document.getElementById('tsimw-char');
-    const elSkill = document.getElementById('tsimw-skill');
-    const elThreshold = document.getElementById('tsimw-threshold');
-    const elRoll = document.getElementById('tsimw-roll');
-    const elReason = document.getElementById('tsimw-reason');
-    const elMode = document.getElementById('tsimw-mode');
-    const elUrl = document.getElementById('tsimw-url');
-
-    // Populate character dropdown
-    elChar.innerHTML = '';
-    chars.forEach((c, i) => {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = c?.name || c?.metadata?.name || `Character ${i+1}`;
-      elChar.appendChild(opt);
-    });
-    if (!chars.length) {
-      const opt = document.createElement('option');
-      opt.value = -1;
-      opt.textContent = 'PC';
-      elChar.appendChild(opt);
-    }
-
-    // Populate skills
-    elSkill.innerHTML = '';
-    skills.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s;
-      opt.textContent = s;
-      elSkill.appendChild(opt);
-    });
-
-    // Auto threshold on skill change
-    elSkill.onchange = () => {
-      const idx = parseInt(elChar.value, 10);
-      const skill = elSkill.value;
-      if (idx >= 0) {
-        elThreshold.value = getSkillThreshold(getCharacters(ctx)[idx], skill) ?? '';
-      }
-    };
-    elChar.onchange = elSkill.onchange;
-    setTimeout(elSkill.onchange, 0);
-
-    // Load middleware mode/url
-    elMode.value = cfg.mode || 'ws';
-    elUrl.value = (cfg.mode === 'http' ? (cfg.httpUrl||DEFAULT_HTTP) : (cfg.wsUrl||DEFAULT_WS));
-    elMode.onchange = () => {
-      const c = getCfg();
-      c.mode = elMode.value;
-      setCfg(c);
-      elUrl.value = c.mode === 'http' ? (c.httpUrl||DEFAULT_HTTP) : (c.wsUrl||DEFAULT_WS);
-    };
-
-    // Submit handler
-    document.getElementById('tsimw-submit').onclick = async () => {
-      const idx = parseInt(elChar.value, 10);
-      const character = (idx >= 0) ? getCharacters(ctx)[idx] : { name: 'PC' };
-      const payload = {
-        type: 'check',
-        character: character?.name || character?.metadata?.name || 'PC',
-        skill: elSkill.value,
-        threshold: Number(elThreshold.value || getSkillThreshold(character, elSkill.value) || 0),
-        roll: Number(elRoll.value || 0),
-        reason: elReason.value?.trim() || ''
-      };
-      // Save cfg
-      const newCfg = getCfg();
-      if (elMode.value === 'http') newCfg.httpUrl = elUrl.value;
-      else newCfg.wsUrl = elUrl.value;
-      newCfg.mode = elMode.value;
-      setCfg(newCfg);
-
-      closeModal();
-      await sendCheck(ctx, payload);
-    };
-
-    elBackdrop.style.display = 'flex';
+    injectStyles();
+    const modal = buildModal(ctx);
+    modal.__open();
   }
 
-  function closeModal() {
-    const el = document.getElementById('tsimw-modal-backdrop');
-    if (el) el.style.display = 'none';
-  }
-
-  // ---- Transport (WS with auto-reconnect, or HTTP POST) ----
-  let ws, wsUrl, wsReady = false, wsQueue = [];
-  function ensureWS(url, onMessage, onStatus) {
-    if (ws && wsUrl === url && wsReady) return ws;
-    wsUrl = url;
-    try { ws?.close?.(); } catch{}
-    wsReady = false;
-    ws = new WebSocket(url);
-    onStatus?.('connecting');
-    ws.onopen = () => { wsReady = true; onStatus?.('connected'); while (wsQueue.length) ws.send(wsQueue.shift()); };
-    ws.onclose = () => { wsReady = false; onStatus?.('closed'); setTimeout(()=>ensureWS(url, onMessage, onStatus), 1000); };
-    ws.onerror = () => { onStatus?.('error'); };
-    ws.onmessage = (e) => onMessage?.(e.data);
-    return ws;
-  }
-
+  // -----------------------------
+  // Engine call
+  // -----------------------------
   async function sendCheck(ctx, check) {
-    const cfg = getCfg();
-    const stamp = new Date().toISOString();
+    const cfg = loadConfig();
 
-    // Tell the LLM what we asked for (structured + human)
-    push(ctx,
-      `[CHECK who=${check.character} skill=${check.skill} reason="${(check.reason||'').replace(/"/g, '\'')}"]\n` +
+    // preflight line (system)
+    push(
+      ctx,
+      `[CHECK who=${check.character} skill=${check.skill} reason="${(check.reason || '').replace(/"/g, '\'')}"]\n` +
       `Rolled **${check.roll}** vs threshold **${check.threshold}%** — sending to rules engine…`,
       { system: true, name: 'System', extra: { module: 'tsi-middleware', kind: 'check_request' } }
     );
 
-    if (cfg.mode === 'http') {
-      try {
-        const res = await fetch(cfg.httpUrl || DEFAULT_HTTP, {
-          method: 'POST',
-          headers: { 'Content-Type':'application/json' },
-          body: JSON.stringify(check)
-        });
-        const data = await res.json();
-        handleEngineResult(ctx, check, data);
-      } catch (e) {
-        handleEngineResult(ctx, check, { ok:false, error: String(e) });
-      }
-    } else {
-      // WebSocket
-      ensureWS(cfg.wsUrl || DEFAULT_WS, (msg) => {
-        try {
-          const data = JSON.parse(msg);
-          if (data?.type === 'check_result' && data?.echo?.stamp === stamp) {
-            handleEngineResult(ctx, check, data);
-          } else if (data?.type === 'check_result' && !data?.echo) {
-            // no correlation; still show
-            handleEngineResult(ctx, check, data);
-          }
-        } catch {}
-      }, (state) => {
-        if (state === 'connected') {
-          const payload = JSON.stringify({ type:'check', ...check, echo:{ stamp } });
-          wsReady ? ws.send(payload) : wsQueue.push(payload);
-        }
-        if (state === 'error' || state === 'closed') {
-          handleEngineResult(ctx, check, { ok:false, error:`Middleware ${state}` });
-        }
-      });
-    }
-  }
-
-  function handleEngineResult(ctx, check, res) {
-    if (!res || res.ok === false) {
-      push(ctx, `❌ Check failed to evaluate (${res?.error || 'unknown error'}). Please adjudicate manually.`,
-           { name: 'TSI-MW', extra: { module: 'tsi-middleware', kind: 'check_error' } });
+    if (cfg.mode !== 'http') {
+      push(ctx, '❌ Only HTTP mode is implemented in this build. Set mode to HTTP and a /check URL.', { name: 'TSI-MW' });
       return;
     }
-    
-    const s = res.success ? 'SUCCESS' : 'FAILURE';
-    const margin = (typeof res.margin === 'number') ? ` (margin ${res.margin})` : '';
-    const tag =
-      `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} ` +
-      `vs=${check.threshold} result=${s}${res.quality ? ` quality=${res.quality}` : ''}]`;
-    
-    // Machine-readable line for the LLM to latch onto (mark as system)
-    push(ctx, tag, { system: true, name: 'System', extra: { module: 'tsi-middleware', kind: 'check_result_raw' } });
-    
-    // Human summary (nice for you + the model)
-    const line =
-      `Outcome for ${check.character}: **${s}** on **${check.skill}** ` +
-      `(rolled ${check.roll} vs ${check.threshold}%${margin}). ${res.details || ''}`.trim();
-    
-    push(ctx, line, { name: 'TSI-MW', extra: { module: 'tsi-middleware', kind: 'check_result_human' } });
-    
-    // Optional toast for visibility while testing
-    ctx.addToast?.(`TSI-MW: ${s}${margin}`);
-    console.log('[TSI-MW] handled result:', res);ddleware', kind:'check_result_human' }
-        });
+
+    try {
+      const res = await fetch(cfg.httpUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(check),
+        credentials: 'omit',
+        mode: 'cors',
+      });
+      const data = await res.json();
+      console.log('[TSI-MW] HTTP result:', data);
+      handleEngineResult(ctx, data, check);
+    } catch (e) {
+      console.error('[TSI-MW] HTTP error:', e);
+      push(ctx, `❌ Network error talking to rules engine: ${e?.message || e}`, { name: 'TSI-MW' });
+    }
   }
 
-  // ---- Bootstrap ----
-  onReady((ctx) => {
-    console.log('[TSI-MW] app ready, installing UI');
-    addHeaderButton(ctx);  // will try to attach to common header containers
-  
-    // Slash command to open the modal
-    const { eventSource, event_types } = ctx;
-    eventSource.on(event_types.INPUT_FIELD_SUBMIT_BEFORE, (p) => {
-      const t = (p?.text ?? '').trim();
-      if (!/^\/check\b/i.test(t)) return;
-      p.cancel = true;
-      openModal(ctx);
-    });
-  
-    // Floating fallback launcher (button style)
+  function handleEngineResult(ctx, res, check) {
+    if (!res || res.ok === false) {
+      push(ctx, `❌ Check failed to evaluate (${res?.error || 'unknown error'}). Please adjudicate manually.`,
+        { name: 'TSI-MW', extra: { module: 'tsi-middleware', kind: 'check_error' } });
+      return;
+    }
+
+    const s = res.success ? 'SUCCESS' : 'FAILURE';
+    const margin = (typeof res.margin === 'number') ? ` (margin ${res.margin})` : '';
+    const tag = `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} vs=${check.threshold} result=${s}${res.quality ? ` quality=${res.quality}` : ''}]`;
+
+    // Machine-readable line for the model (system)
+    push(ctx, tag, { system: true, name: 'System', extra: { module: 'tsi-middleware', kind: 'check_result_raw' } });
+
+    // Human summary
+    const line = `Outcome for ${check.character}: **${s}** on **${check.skill}** (rolled ${check.roll} vs ${check.threshold}%${margin}). ${res.details || ''}`.trim();
+    push(ctx, line, { name: 'TSI-MW', extra: { module: 'tsi-middleware', kind: 'check_result_human' } });
+
+    ctx.addToast?.(`TSI-MW: ${s}${margin}`);
+    console.log('[TSI-MW] handled result:', res);
+  }
+
+  // -----------------------------
+  // UI entry points
+  // -----------------------------
+  function addHeaderButton(ctx) {
+    const candidates = [
+      '#extensionsApiButtons',
+      '#btnContainer',
+      '#extensionsMenu',
+      '#rightNav',
+      '#menu_bar',
+      'header'
+    ];
+    const bar = candidates.map(sel => document.querySelector(sel)).find(Boolean) || document.body;
+
+    if (document.getElementById('tsimw-btn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'tsimw-btn';
+    btn.type = 'button';
+    btn.textContent = 'Skill Check';
+    btn.title = 'Open Top Secret/S.I. check modal';
+    btn.onclick = () => openModal(ctx);
+    btn.className = 'menu_button';
+    bar.appendChild(btn);
+  }
+
+  function addFab(ctx) {
+    if (document.getElementById('tsimw-fab')) return;
     const fab = document.createElement('button');
     fab.id = 'tsimw-fab';
     fab.type = 'button';
-    fab.textContent = 'Skill Check';  // <-- change text here
-    fab.title = 'Open Top Secret/SI skill check modal';
+    fab.textContent = 'Skill Check';
+    fab.title = 'Open Top Secret/S.I. check modal';
     fab.onclick = () => openModal(ctx);
     document.body.appendChild(fab);
-  
-    // Expose a global helper so you can open it from console
+  }
+
+  // -----------------------------
+  // Bootstrap
+  // -----------------------------
+  console.log(`[${MOD}] index.js loaded; waiting for APP_READY…`);
+  onReady((ctx) => {
+    console.log(`[${MOD}] app ready, installing UI`);
+    injectStyles();
+    addHeaderButton(ctx);
+    addFab(ctx);
+
+    // Expose helpers for console
     window.TSIMW = {
       open: () => openModal(ctx),
-      setCharacters: (arr) => localStorage.setItem('tsimw.characters', JSON.stringify(arr)),
+      setCharacters: saveCharacters,
+      getCharacters: loadCharacters,
+      setConfig: saveConfig,
+      getConfig: loadConfig
     };
-  });
 
+    // First-time hint
+    try {
+      const cfg = loadConfig();
+      if (!cfg || !cfg.httpUrl) {
+        ctx.addToast?.('TSI-MW: Set your middleware URL in the modal (default set).');
+      }
+    } catch {}
+  });
 })();

@@ -114,6 +114,30 @@
     }
   }
 
+  async function triggerGeneration(ctx) {
+    try {
+      // Clear any text in the input box first
+      const textarea = document.getElementById('send_textarea') || 
+                       document.querySelector('#form_say textarea');
+      if (textarea) {
+        textarea.value = '';
+      }
+      
+      const sendBtn = document.getElementById('send_but');
+      if (sendBtn && !sendBtn.disabled) {
+        console.log('[TSI-MW] Triggering generation via send button');
+        sendBtn.click();
+        return true;
+      }
+      
+      console.warn('[TSI-MW] Send button not available');
+      return false;
+    } catch (e) {
+      console.error('[TSI-MW] triggerGeneration failed:', e);
+      return false;
+    }
+  }
+  
   // ---------------------------
   // Modal
   // ---------------------------
@@ -312,6 +336,9 @@
       
       // NOW render everything at once
       forceRender(freshCtx);
+
+      // Wait a brief moment for render to complete, then trigger generation
+      setTimeout(() => triggerGeneration(freshCtx), 100);
       
     } catch (e) {
       console.error(`[${MOD}] sendCheck error`, e);
@@ -320,6 +347,8 @@
         extra: { module: 'tsi-middleware', kind: 'check_error' } 
       });
       forceRender(freshCtx);
+      // Wait a brief moment for render to complete, then trigger generation
+      setTimeout(() => triggerGeneration(freshCtx), 100);
     }
   }
   

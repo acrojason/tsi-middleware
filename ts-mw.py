@@ -1,10 +1,18 @@
+# middleware.py
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from datetime import datetime
 
 app = Flask(__name__)
+# allow all origins for quick local testing; tighten later if you want
+CORS(app, resources={r"/check": {"origins": "*"}}, supports_credentials=False)
 
-@app.route("/check", methods=["POST"])
+@app.route("/check", methods=["POST", "OPTIONS"])
 def check():
+    if request.method == "OPTIONS":
+        # Flask-CORS will add the headers; a 200 here is fine
+        return ("", 200)
+
     data = request.get_json(force=True)
     character = data.get("character", "Unknown")
     skill = data.get("skill", "Unknown")
@@ -14,7 +22,6 @@ def check():
     success = roll <= threshold
     margin = abs(threshold - roll)
 
-    # crude quality rule
     if roll <= 5:
         quality = "crit"
     elif roll >= 96:
@@ -33,6 +40,3 @@ def check():
         "details": details,
         "stamp": datetime.utcnow().isoformat()
     })
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5050)

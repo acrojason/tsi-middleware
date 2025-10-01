@@ -289,6 +289,7 @@
   // Middleware call
   // ---------------------------
   async function sendCheck(ctx, check) {
+    console.log('[TSI-MW] sendCheck ctx.name2:', ctx?.name2);
     const url = (loadConfig().httpUrl || '').trim();
     if (!url) { ctx.addToast?.('TSI-MW: No middleware URL configured.'); return; }
   
@@ -312,7 +313,9 @@
   
       const s = data.success ? 'SUCCESS' : 'FAILURE';
       const tag = `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} vs=${check.threshold} result=${s}${data.quality ? ` quality=${data.quality}` : ''}]`;
-  
+
+      console.log('[TSI-MW] About to push with name:', ctx?.name2 || 'The Administrator');
+      
       // Machine-readable line - USE CHARACTER NAME
       push(ctx, tag, { 
         name: ctx?.name2 || 'The Administrator',  // <-- Add this!

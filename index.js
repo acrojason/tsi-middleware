@@ -115,23 +115,29 @@
     } catch { return new Date().toString(); }
   }
 
-  function push(ctx, msg) {
+  function push(ctx, textOrMsg, opts = {}) {
     const { eventSource, event_types } = ctx;
+  
+    // Normalize args: allow push(ctx, "text", {name, extra}) OR push(ctx, {mes, name, extra})
+    const base = (typeof textOrMsg === 'string') ? { mes: textOrMsg } : (textOrMsg || {});
     const m = {
       is_user: false,
-      is_system: false,
-      name: msg.name || ctx?.name2 || 'The Administrator', // << default to active char
-      send_date: new Date().toString(),
-      mes: msg.mes ?? '',
-      extra: msg.extra ?? {},
+      is_system: false, // keep false so it renders like a normal assistant message
+      name: base.name || opts.name || ctx?.name2 || 'The Administrator',
+      send_date: nowStamp(),
+      mes: base.mes ?? '',
+      extra: { ...(base.extra || {}), ...(opts.extra || {}) },
     };
   
+    if (!m.mes) {
+      console.warn('[TSI-MW] push(): empty message text, skipping render', { textOrMsg, opts });
+      return;
+    }
+  
     try {
-      // If ST provides a native helper, use it
       if (typeof ctx.pushToChat === 'function') {
         ctx.pushToChat(m);
       } else {
-        // Fallback: push into chat + emit event
         ctx.chat?.push?.(m);
         eventSource?.emit?.(event_types?.MESSAGE_RECEIVED || 'message_received', m);
       }
@@ -140,12 +146,11 @@
       ctx.addToast?.(m.mes) || alert(m.mes);
     }
   
-    // Force UI to paint newly added messages (covers builds that don’t auto-render)
+    // Force UI to render (covers builds that don’t auto-paint on MESSAGE_RECEIVED)
     try {
       if (globalThis.showMoreMessages) {
         globalThis.showMoreMessages(Number.MAX_SAFE_INTEGER);
       } else {
-        // fallback via slash command if available
         const SCP = globalThis.SillyTavern?.getContext?.()?.SlashCommandParser;
         SCP?.parse?.('/chat-render');
       }
@@ -153,7 +158,6 @@
       console.warn('[TSI-MW] render fallback failed', err);
     }
   }
-
 
   // -----------------------------
   // Modal UI
@@ -332,11 +336,10 @@
     const cfg = loadConfig();
 
     // preflight line (system)
-    push(
-      ctx,
+    push(ctx,
       `[CHECK who=${check.character} skill=${check.skill} reason="${(check.reason || '').replace(/"/g, '\'')}"]\n` +
       `Rolled **${check.roll}** vs threshold **${check.threshold}%** — sending to rules engine…`,
-      { system: true, name: 'System', extra: { module: 'tsi-middleware', kind: 'check_request' } }
+      { extra: { module: 'tsi-middleware', kind: 'check_request' } }
     );
 
     if (cfg.mode !== 'http') {

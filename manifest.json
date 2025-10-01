@@ -1,9 +1,11 @@
 {
-  "id": "ts_middleware",
-  "display_name": "TS Middleware (WorldBible + Mechanics)",
-  "version": "0.2.0",
-  "description": "Click-to-Check UI, manual dice, rule enforcement",
-  "author": "you",
+  "display_name": "TSI Middleware",
+  "loading_order": 1,
   "js": "index.js",
-  "requires": []
+  "css": "style.css",
+  "author": "acrojason",
+  "version": "0.2.0",
+  "homePage": "https://github.com/acrojason/tsi-middleware",
+  "auto_update": false,
+  "minimum_client_version": "1.11.0"
 }

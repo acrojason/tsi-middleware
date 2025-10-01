@@ -338,6 +338,7 @@
     });
   
     // Make the badge clickable, as a fallback launcher
+    // Make the badge clickable, as a fallback launcher
     const pill = document.createElement('div');
     pill.textContent = 'TSI-MW';
     Object.assign(pill.style, {
@@ -348,6 +349,7 @@
     pill.title = 'Open Top Secret/SI check modal';
     pill.onclick = () => openModal(ctx);
     document.body.appendChild(pill);
+
   
     // Expose a global helper so you can open it from console
     window.TSIMW = {

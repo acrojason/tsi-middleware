@@ -97,16 +97,20 @@
   // ---------------------------
   // Chat injection
   // ---------------------------
-  function forceRender() {
+  function forceRender(ctx) {
     try {
-      if (globalThis.showMoreMessages) {
-        globalThis.showMoreMessages(Number.MAX_SAFE_INTEGER);
-      } else {
-        const SCP = globalThis.SillyTavern?.getContext?.()?.SlashCommandParser;
-        SCP?.parse?.('/chat-render');
+      // It's a method on the context object!
+      if (typeof ctx?.printMessages === 'function') {
+        ctx.printMessages();
+        console.log('[TSI-MW] Rendered via ctx.printMessages');
+        return true;
       }
+      
+      console.warn('[TSI-MW] ctx.printMessages not available');
+      return false;
     } catch (e) {
-      console.warn(`[${MOD}] render fallback failed`, e);
+      console.error('[TSI-MW] forceRender failed:', e);
+      return false;
     }
   }
 
@@ -116,27 +120,28 @@
     const base = (typeof textOrMsg === 'string') ? { mes: textOrMsg } : (textOrMsg || {});
     const m = {
       is_user: false,
-      is_system: false, // render as normal assistant message
+      is_system: false,
       name: base.name || opts.name || ctx?.name2 || 'The Administrator',
       send_date: nowStamp(),
       mes: base.mes ?? '',
       extra: { ...(base.extra || {}), ...(opts.extra || {}) },
     };
-
+  
     if (!m.mes) {
-      console.warn(`[${MOD}] push(): empty message text`, { textOrMsg, opts });
+      console.warn(`[${MOD}] push(): empty message text`);
       return;
     }
-
+  
     try {
       ctx.chat?.push?.(m);
-      eventSource?.emit?.((ctx.event_types || ctx.eventTypes)?.MESSAGE_RECEIVED || 'message_received', m);
+      eventSource?.emit?.(event_types?.MESSAGE_RECEIVED || 'message_received', m);
+      
+      // Call the render function on the context!
+      forceRender(ctx);
     } catch (e) {
       console.warn(`[${MOD}] push failed`, e);
       ctx.addToast?.(m.mes) || alert(m.mes);
     }
-
-    forceRender();
   }
 
   // ---------------------------

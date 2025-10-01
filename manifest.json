@@ -4,6 +4,6 @@
   "version": "0.1.0",
   "description": "Hidden world bible + rules engine for Top Secret/S.I.",
   "author": "you",
-  "entrypoint": "index.js",
+  "js": "index.js",
   "requires": []
 }

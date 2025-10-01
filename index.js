@@ -291,13 +291,16 @@
   async function sendCheck(ctx, check) {
     const url = (loadConfig().httpUrl || '').trim();
     if (!url) { ctx.addToast?.('TSI-MW: No middleware URL configured.'); return; }
-
+  
     push(ctx,
-      `[CHECK who=${check.character} skill=${check.skill} reason="${check.reason.replace(/"/g, "'")}"]\n` +
-      `Rolled **${check.roll}** vs **${check.threshold}%** — sending to rules engine…`,
-      { extra: { module: 'tsi-middleware', kind: 'check_request' } }
+      `[CHECK who=${check.character} skill=${check.skill} reason="${check.reason.replace(/"/g, "'")}"]` +
+      `\nRolled **${check.roll}** vs **${check.threshold}%** — sending to rules engine…`,
+      { 
+        name: ctx?.name2 || 'The Administrator',  // <-- Add this!
+        extra: { module: 'tsi-middleware', kind: 'check_request' } 
+      }
     );
-
+  
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -306,22 +309,31 @@
       });
       const data = await res.json();
       console.log(`[${MOD}] handled result:`, data);
-
+  
       const s = data.success ? 'SUCCESS' : 'FAILURE';
       const tag = `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} vs=${check.threshold} result=${s}${data.quality ? ` quality=${data.quality}` : ''}]`;
-
-      // Machine-readable line
-      push(ctx, tag, { extra: { module: 'tsi-middleware', kind: 'check_result_raw' } });
-
-      // Human summary
+  
+      // Machine-readable line - USE CHARACTER NAME
+      push(ctx, tag, { 
+        name: ctx?.name2 || 'The Administrator',  // <-- Add this!
+        extra: { module: 'tsi-middleware', kind: 'check_result_raw' } 
+      });
+  
+      // Human summary - USE CHARACTER NAME
       const margin = (typeof data.margin === 'number') ? ` (margin ${data.margin})` : '';
       push(ctx,
         `Outcome for ${check.character}: **${s}** on **${check.skill}** (rolled ${check.roll} vs ${check.threshold}%${margin}). ${data.details || ''}`,
-        { extra: { module: 'tsi-middleware', kind: 'check_result_human' } }
+        { 
+          name: ctx?.name2 || 'The Administrator',  // <-- And this!
+          extra: { module: 'tsi-middleware', kind: 'check_result_human' } 
+        }
       );
     } catch (e) {
       console.error(`[${MOD}] sendCheck error`, e);
-      push(ctx, `❌ Network error talking to rules engine: ${e?.message || e}`, { extra: { module: 'tsi-middleware', kind: 'check_error' } });
+      push(ctx, `❌ Network error talking to rules engine: ${e?.message || e}`, { 
+        name: ctx?.name2 || 'The Administrator',  // <-- And this!
+        extra: { module: 'tsi-middleware', kind: 'check_error' } 
+      });
     }
   }
 

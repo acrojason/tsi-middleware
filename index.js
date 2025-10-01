@@ -115,38 +115,46 @@
     } catch { return new Date().toString(); }
   }
 
-  function push(ctx, text, { system = false, name, extra = {} } = {}) {
-    const who = name || ctx?.name2 || 'TSI-MW';      // << use active character by default
+  function push(ctx, text, { name, extra = {} } = {}) {
+    const who = name || ctx?.name2 || 'TSI-MW';
+    
+    // Use the official addOneMessage function if available
+    if (typeof addOneMessage === 'function') {
+      addOneMessage({
+        name: who,
+        is_user: false,
+        is_system: false,
+        mes: text,
+        extra: extra || {},
+        send_date: nowStamp()
+      });
+      return;
+    }
+    
+    // Fallback: manual injection with proper rendering
     const msg = {
       name: who,
       is_user: false,
-      is_system: false,                               // render as assistant message
-      send_date: nowStamp(),
+      is_system: false,
       mes: text,
-      extra
+      extra: extra || {},
+      send_date: nowStamp()
     };
-  
-    try {
-      // 1) Push into chat
-      ctx.chat.push(msg);
-  
-      // 2) Notify event bus
-      const es = ctx.eventSource;
-      const et = ctx.event_types || ctx.eventTypes;
-      es?.emit?.(et?.MESSAGE_RECEIVED || 'message_received', msg);
-  
-      // 3) Force UI to render (covers builds that don't auto-paint on MESSAGE_RECEIVED)
-      if (globalThis.showMoreMessages) {
-        globalThis.showMoreMessages(Number.MAX_SAFE_INTEGER);
-      } else {
-        // fallback to slash command if available
-        const SCP = window.SillyTavern?.getContext?.()?.SlashCommandParser;
-        SCP?.parse?.('/chat-render');
-      }
-    } catch (e) {
-      console.warn('[TSI-MW] push fallback failed:', e);
-      ctx.addToast?.(text) || alert(text);
+    
+    ctx.chat.push(msg);
+    
+    // Trigger proper re-render
+    if (typeof printMessages === 'function') {
+      printMessages();
+    } else if (typeof eventSource !== 'undefined') {
+      eventSource.emit('chatChanged', ctx.chat.length - 1);
     }
+    
+    // Scroll to bottom
+    setTimeout(() => {
+      const chatBlock = document.getElementById('chat');
+      if (chatBlock) chatBlock.scrollTop = chatBlock.scrollHeight;
+    }, 50);
   }
 
 

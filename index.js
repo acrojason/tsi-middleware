@@ -115,46 +115,65 @@
     } catch { return new Date().toString(); }
   }
 
-  function push(ctx, text, { system = false, name = 'TSI-MW', extra = {} } = {}) {
-    if (!ctx) { console.warn(`[${MOD}] no ctx; using alert fallback`); alert(text); return; }
-
-    // Preferred if present
-    if (ctx.pushToChat) {
-      ctx.pushToChat({ is_user: false, is_system: system, name, mes: text, extra });
-      return;
-    }
-    if (window.addAssistantMessage) {
-      window.addAssistantMessage(text);
-      return;
-    }
-
-    // Universal: mutate chat and emit MESSAGE_RECEIVED
-    const msg = { name, is_user: false, is_system: system, send_date: nowStamp(), mes: text, extra };
+  function push(ctx, text, { system = false, name, extra = {} } = {}) {
+    const who = name || ctx?.name2 || 'TSI-MW';      // << use active character by default
+    const msg = {
+      name: who,
+      is_user: false,
+      is_system: false,                               // render as assistant message
+      send_date: nowStamp(),
+      mes: text,
+      extra
+    };
+  
     try {
+      // 1) Push into chat
       ctx.chat.push(msg);
+  
+      // 2) Notify event bus
       const es = ctx.eventSource;
       const et = ctx.event_types || ctx.eventTypes;
       es?.emit?.(et?.MESSAGE_RECEIVED || 'message_received', msg);
+  
+      // 3) Force UI to render (covers builds that don't auto-paint on MESSAGE_RECEIVED)
+      if (globalThis.showMoreMessages) {
+        globalThis.showMoreMessages(Number.MAX_SAFE_INTEGER);
+      } else {
+        // fallback to slash command if available
+        const SCP = window.SillyTavern?.getContext?.()?.SlashCommandParser;
+        SCP?.parse?.('/chat-render');
+      }
     } catch (e) {
-      console.warn(`[${MOD}] push fallback failed:`, e);
+      console.warn('[TSI-MW] push fallback failed:', e);
       ctx.addToast?.(text) || alert(text);
     }
   }
+
 
   // -----------------------------
   // Modal UI
   // -----------------------------
   function buildModal(ctx) {
-    if (document.getElementById('tsimw-modal-backdrop')) return;
-
-    const backdrop = document.createElement('div');
+    // If we already have a full modal/backdrop, reuse it
+    let backdrop = document.getElementById('tsimw-modal-backdrop');
+    let modal = document.getElementById('tsimw-modal');
+    if (backdrop && modal) return modal;
+  
+    // If backdrop exists but modal was removed (inconsistent DOM), reset it
+    if (backdrop && !modal) {
+      backdrop.remove();
+      backdrop = null;
+    }
+  
+    // Fresh build
+    backdrop = document.createElement('div');
     backdrop.id = 'tsimw-modal-backdrop';
-
-    const modal = document.createElement('div');
+  
+    modal = document.createElement('div');
     modal.id = 'tsimw-modal';
     modal.innerHTML = `
       <h3>Top Secret/S.I. — Skill Check</h3>
-
+  
       <div class="row">
         <div>
           <label for="tsimw-char">Character</label>
@@ -165,7 +184,7 @@
           <select id="tsimw-skill"></select>
         </div>
       </div>
-
+  
       <div class="row">
         <div>
           <label for="tsimw-threshold">Threshold %</label>
@@ -176,14 +195,14 @@
           <input id="tsimw-roll" type="number" min="1" max="100" step="1" />
         </div>
       </div>
-
+  
       <div class="row" style="grid-template-columns: 1fr;">
         <div>
           <label for="tsimw-reason">Reason / Context (optional)</label>
           <textarea id="tsimw-reason" placeholder="e.g., Shadow the courier through the bazaar"></textarea>
         </div>
       </div>
-
+  
       <div class="row">
         <div>
           <label for="tsimw-url">Middleware URL (HTTP)</label>
@@ -197,28 +216,29 @@
           </div>
         </div>
       </div>
-
+  
       <div class="actions">
         <button id="tsimw-cancel" type="button">Cancel</button>
         <button id="tsimw-submit" type="button">Submit</button>
       </div>
     `;
-
+  
     backdrop.appendChild(modal);
     document.body.appendChild(backdrop);
-
-    // Wiring
+  
+    // Wire up behavior (same as before)
     const charSel = modal.querySelector('#tsimw-char');
     const skillSel = modal.querySelector('#tsimw-skill');
     const threshold = modal.querySelector('#tsimw-threshold');
     const roll = modal.querySelector('#tsimw-roll');
     const reason = modal.querySelector('#tsimw-reason');
     const urlInput = modal.querySelector('#tsimw-url');
-
+  
     const cfg = loadConfig();
     urlInput.value = cfg.httpUrl || '';
-
+  
     const chars = loadCharacters();
+  
     function fillChars() {
       charSel.innerHTML = '';
       chars.forEach((c, i) => {
@@ -228,6 +248,7 @@
         charSel.appendChild(opt);
       });
     }
+  
     function fillSkills() {
       skillSel.innerHTML = '';
       const c = chars[Number(charSel.value) || 0] || { skills: {} };
@@ -247,21 +268,20 @@
         opt.dataset.pct = String(pct);
         skillSel.appendChild(opt);
       }
-      // Set threshold to selected skill
       const pct = Number(skillSel.options[skillSel.selectedIndex]?.dataset?.pct || 0);
       threshold.value = String(pct);
     }
-
+  
     fillChars();
     fillSkills();
-
+  
     charSel.addEventListener('change', fillSkills);
     skillSel.addEventListener('change', () => {
       const pct = Number(skillSel.options[skillSel.selectedIndex]?.dataset?.pct || 0);
       threshold.value = String(pct);
     });
-
-    modal.querySelector('#tsimw-cancel').onclick = closeModal;
+  
+    modal.querySelector('#tsimw-cancel').onclick = () => (backdrop.style.display = 'none');
     modal.querySelector('#tsimw-saveurl').onclick = () => {
       const cfg2 = loadConfig();
       cfg2.httpUrl = urlInput.value.trim();
@@ -273,41 +293,32 @@
       const skill = skillSel.value;
       const thr = Math.max(0, Math.min(100, Number(threshold.value || 0)));
       const r = Math.max(1, Math.min(100, Number(roll.value || 0)));
-
-      if (!c || !skill) {
-        ctx.addToast?.('Select a character and skill.');
-        return;
-      }
-      const check = {
+      if (!c || !skill) { ctx.addToast?.('Select a character and skill.'); return; }
+  
+      await sendCheck(ctx, {
         type: 'check',
         character: c.name || 'Unknown',
         skill,
         threshold: thr,
         roll: r,
         reason: (reason.value || '').trim()
-      };
-      await sendCheck(ctx, check);
-      closeModal();
-    };
-
-    function closeModal() {
+      });
       backdrop.style.display = 'none';
-    }
-
-    // expose open/close for reuse
+    };
+  
+    // expose open/close
     modal.__open = () => { backdrop.style.display = 'flex'; };
-    backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop) backdrop.style.display = 'none';
-    });
-
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; });
+  
     return modal;
   }
-
+  
   function openModal(ctx) {
     injectStyles();
     const modal = buildModal(ctx);
-    modal.__open();
+    modal.__open(); // safe now — buildModal always returns a modal node
   }
+
 
   // -----------------------------
   // Engine call
@@ -357,11 +368,12 @@
     const tag = `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} vs=${check.threshold} result=${s}${res.quality ? ` quality=${res.quality}` : ''}]`;
 
     // Machine-readable line for the model (system)
-    push(ctx, tag, { system: true, name: 'System', extra: { module: 'tsi-middleware', kind: 'check_result_raw' } });
+    push(ctx, `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} vs=${check.threshold} result=${s}${res.quality?` quality=${res.quality}`:''}]`,
+     { extra: { module: 'tsi-middleware', kind: 'check_result_raw' } });
 
     // Human summary
-    const line = `Outcome for ${check.character}: **${s}** on **${check.skill}** (rolled ${check.roll} vs ${check.threshold}%${margin}). ${res.details || ''}`.trim();
-    push(ctx, line, { name: 'TSI-MW', extra: { module: 'tsi-middleware', kind: 'check_result_human' } });
+    push(ctx, `Outcome for ${check.character}: **${s}** on **${check.skill}** (rolled ${check.roll} vs ${check.threshold}%${margin}). ${res.details || ''}`,
+     { extra: { module: 'tsi-middleware', kind: 'check_result_human' } });
 
     ctx.addToast?.(`TSI-MW: ${s}${margin}`);
     console.log('[TSI-MW] handled result:', res);

@@ -56,15 +56,27 @@
 
   // ---- UI ----
   function addHeaderButton(ctx) {
-    const bar = document.querySelector('#extensionsApiButtons') || document.querySelector('#btnContainer') || document.body;
-    const btn = document.createElement('button');
-    btn.id = 'tsimw-btn';
-    btn.type = 'button';
-    btn.textContent = 'Check';
-    btn.title = 'Top Secret/SI Skill Check';
-    btn.onclick = () => openModal(ctx);
-    bar.appendChild(btn);
-  }
+  const candidates = [
+    '#extensionsApiButtons',
+    '#btnContainer',
+    '#extensionsMenu',
+    '#rightNav',
+    '#menu_bar',
+    'header',               // fallback
+  ];
+  let bar = candidates.map(sel => document.querySelector(sel)).find(Boolean) || document.body;
+
+  const btn = document.createElement('button');
+  btn.id = 'tsimw-btn';
+  btn.type = 'button';
+  btn.textContent = 'Check';
+  btn.title = 'Top Secret/SI Skill Check';
+  btn.onclick = () => openModal(ctx);
+  btn.style.marginLeft = '6px';
+  btn.className = 'menu_button'; // helps styling in some themes
+  bar.appendChild(btn);
+}
+
 
   function buildModalDom() {
     if (document.getElementById('tsimw-modal-backdrop')) return;
@@ -314,9 +326,9 @@
   // ---- Bootstrap ----
   onReady((ctx) => {
     console.log('[TSI-MW] app ready, installing UI');
-    addHeaderButton(ctx);
-
-    // Optional: quick /check to open the modal
+    addHeaderButton(ctx);  // will try to attach to common header containers
+  
+    // Slash command to open the modal
     const { eventSource, event_types } = ctx;
     eventSource.on(event_types.INPUT_FIELD_SUBMIT_BEFORE, (p) => {
       const t = (p?.text ?? '').trim();
@@ -324,15 +336,24 @@
       p.cancel = true;
       openModal(ctx);
     });
-
-    // Tiny badge to indicate live
+  
+    // Make the badge clickable, as a fallback launcher
     const pill = document.createElement('div');
     pill.textContent = 'TSI-MW';
     Object.assign(pill.style, {
       position:'fixed', right:'10px', bottom:'10px', padding:'4px 8px',
       borderRadius:'10px', background:'var(--SmartThemeAccent)', color:'var(--SmartThemeBodyColor)',
-      fontSize:'11px', zIndex:9999, opacity:.9
+      fontSize:'11px', zIndex:9999, opacity:.9, cursor:'pointer'
     });
+    pill.title = 'Open Top Secret/SI check modal';
+    pill.onclick = () => openModal(ctx);
     document.body.appendChild(pill);
+  
+    // Expose a global helper so you can open it from console
+    window.TSIMW = {
+      open: () => openModal(ctx),
+      setCharacters: (arr) => localStorage.setItem('tsimw.characters', JSON.stringify(arr)),
+    };
   });
+
 })();

@@ -115,46 +115,43 @@
     } catch { return new Date().toString(); }
   }
 
-  function push(ctx, text, { name, extra = {} } = {}) {
-    const who = name || ctx?.name2 || 'TSI-MW';
-    
-    // Use the official addOneMessage function if available
-    if (typeof addOneMessage === 'function') {
-      addOneMessage({
-        name: who,
-        is_user: false,
-        is_system: false,
-        mes: text,
-        extra: extra || {},
-        send_date: nowStamp()
-      });
-      return;
-    }
-    
-    // Fallback: manual injection with proper rendering
-    const msg = {
-      name: who,
+  function push(ctx, msg) {
+    const { eventSource, event_types } = ctx;
+    const m = {
       is_user: false,
       is_system: false,
-      mes: text,
-      extra: extra || {},
-      send_date: nowStamp()
+      name: msg.name || ctx?.name2 || 'The Administrator', // << default to active char
+      send_date: new Date().toString(),
+      mes: msg.mes ?? '',
+      extra: msg.extra ?? {},
     };
-    
-    ctx.chat.push(msg);
-    
-    // Trigger proper re-render
-    if (typeof printMessages === 'function') {
-      printMessages();
-    } else if (typeof eventSource !== 'undefined') {
-      eventSource.emit('chatChanged', ctx.chat.length - 1);
+  
+    try {
+      // If ST provides a native helper, use it
+      if (typeof ctx.pushToChat === 'function') {
+        ctx.pushToChat(m);
+      } else {
+        // Fallback: push into chat + emit event
+        ctx.chat?.push?.(m);
+        eventSource?.emit?.(event_types?.MESSAGE_RECEIVED || 'message_received', m);
+      }
+    } catch (e) {
+      console.warn('[TSI-MW] push failed, falling back to toast/alert', e);
+      ctx.addToast?.(m.mes) || alert(m.mes);
     }
-    
-    // Scroll to bottom
-    setTimeout(() => {
-      const chatBlock = document.getElementById('chat');
-      if (chatBlock) chatBlock.scrollTop = chatBlock.scrollHeight;
-    }, 50);
+  
+    // Force UI to paint newly added messages (covers builds that don’t auto-render)
+    try {
+      if (globalThis.showMoreMessages) {
+        globalThis.showMoreMessages(Number.MAX_SAFE_INTEGER);
+      } else {
+        // fallback via slash command if available
+        const SCP = globalThis.SillyTavern?.getContext?.()?.SlashCommandParser;
+        SCP?.parse?.('/chat-render');
+      }
+    } catch (err) {
+      console.warn('[TSI-MW] render fallback failed', err);
+    }
   }
 
 

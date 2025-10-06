@@ -306,10 +306,9 @@
       
       await sendCheck(ctx, {
         type: 'check',
-        character: c.name || 'Unknown',
         skill: skillSel.value,
-        threshold: finalThreshold,
         roll: roll,
+        modifier: Number(modInput.value || 0),  // Situational modifier
         reason: (reason.value || '').trim(),
       });
       backdrop.style.display = 'none';

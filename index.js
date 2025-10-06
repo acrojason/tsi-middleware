@@ -479,7 +479,7 @@
     const es = ctx.eventSource;
     const et = ctx.event_types || ctx.eventTypes;
     
-    es.on(et.MESSAGE_RECEIVED || 'message_received', (msg) => {
+    es.on(et.MESSAGE_RECEIVED || 'message_received', (index) => {
       console.log('[TSI-MW] MESSAGE_RECEIVED index:', index);
 
       const freshCtx = window.SillyTavern?.getContext?.();

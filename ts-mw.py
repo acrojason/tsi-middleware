@@ -44,7 +44,7 @@ def check():
 
     skill_data = PC_DATA.get("skills", {}).get(skill_name)
     if not skill_data:
-        return jsonify({"ok": False, "error": f"Skill {skill_name} not found on character}), 400
+        return jsonify({"ok": False, "error": f"Skill {skill_name} not found on character"}), 400
 
     # Calculate threshold: base + {level *5}
     # Assuming skill_data is like: {"level": 0, "base": 45}

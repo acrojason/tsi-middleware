@@ -58,7 +58,7 @@ def check():
 
     # Apply modifier from frontend (situational difficulty)
     modifier = int(data.get("modifier", 0))
-    threshold = max(0, min(100, threshold + modifier)
+    threshold = max(0, min(100, threshold + modifier))
     
     characther_name = PC_DATA.get("name", "Unknown")
     

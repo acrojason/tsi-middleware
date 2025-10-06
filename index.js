@@ -2,30 +2,6 @@
 (() => {
   const MOD = 'TSI-MW';
 
-  const SKILL_CHECK_FUNCTION = {
-    name: 'request_skill_check',
-    description: 'Request a skill check from the player when the narrative situation requires testing their abilities',
-    parameters: {
-      type: 'object',
-      properties: {
-        skill: {
-          type: 'string',
-          description: 'The skill being tested (e.g., "Surveillance", "Disguise", "Firearms")'
-        },
-        difficulty: {
-          type: 'string',
-          enum: ['trivial', 'routine', 'standard', 'challenging', 'formidable', 'desperate'],
-          description: 'Difficulty assessment: trivial (+10), routine (+5), standard (0), challenging (-5), formidable (-10), desperate (-20)'
-        },
-        reason: {
-          type: 'string',
-          description: 'Brief explanation of why the check is needed and what conditions affect difficulty'
-        }
-      },
-      required: ['skill', 'difficulty', 'reason']
-    }
-  };
-  
   const DIFFICULTY_MODIFIERS = {
     'trivial': 10,
     'routine': 5,
@@ -499,24 +475,26 @@
     injectStyles();
     addFab(ctx);
 
-    // Register function calling tool
-    if (ctx.registerFunctionTool) {
-      ctx.registerFunctionTool(
-        SKILL_CHECK_FUNCTION.name,
-        async (args) => {
-          console.log('[TSI-MW] Function called with:', args);
-          await openModal(ctx, args);
-          return {
-            success: true,
-            message: 'Skill check modal opened. Awaiting player input.'
-          };
-        },
-        SKILL_CHECK_FUNCTION
-      );
-      console.log('[TSI-MW] Registered function tool:', SKILL_CHECK_FUNCTION.name);
-    } else {
-      console.warn('[TSI-MW] registerFunctionTool not available - function calling disabled');
-    }
+    // Listen for Administrator requesting checks via text
+    const es = ctx.eventSource;
+    const et = ctx.event_types || ctx.eventTypes;
+    
+    es.on(et.MESSAGE_RECEIVED || 'message_received', (msg) => {
+      // Ignore user messages
+      if (msg.is_user) return;
+      
+      // Look for check request pattern
+      const checkMatch = msg.mes.match(/\[CHECK\s+skill=(\w+)\s+difficulty=(\w+)\s+reason="([^"]+)"\]/);
+      if (checkMatch) {
+        const [_, skill, difficulty, reason] = checkMatch;
+        console.log('[TSI-MW] Detected check request:', { skill, difficulty, reason });
+        
+        // Auto-open modal with pre-filled data
+        setTimeout(() => {
+          openModal(ctx, { skill, difficulty, reason });
+        }, 500);
+      }
+    });
 
     globalThis.TSIMW = {
       open: () => openModal(ctx),

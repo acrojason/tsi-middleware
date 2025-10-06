@@ -480,11 +480,11 @@
     const et = ctx.event_types || ctx.eventTypes;
     
     es.on(et.MESSAGE_RECEIVED || 'message_received', (msg) => {
-      console.log('[TSI-MW] MESSAGE_RECEIVED:', {
-        is_user: msg.is_user,
-        name: msg.name,
-        mes_preview: msg.mes?.substring(0, 100)
-      });
+      console.log('[TSI-MW] MESSAGE_RECEIVED raw:', msg);
+      console.log('[TSI-MW] Type:', typeof msg);
+      console.log('[TSI-MW] Keys:', Object.keys(msg || {}));
+
+      console.log('[TSI-MW] Arguments:', Array.from(arguments));
       
       // Ignore user messages
       if (msg.is_user) return;

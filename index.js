@@ -480,18 +480,23 @@
     const et = ctx.event_types || ctx.eventTypes;
     
     es.on(et.MESSAGE_RECEIVED || 'message_received', (msg) => {
-      console.log('[TSI-MW] MESSAGE_RECEIVED raw:', msg);
-      console.log('[TSI-MW] Type:', typeof msg);
-      console.log('[TSI-MW] Keys:', Object.keys(msg || {}));
+      console.log('[TSI-MW] MESSAGE_RECEIVED index:', index);
 
-      console.log('[TSI-MW] Arguments:', Array.from(arguments));
+      const freshCtx = window.SillyTavern?.getContext?.();
+      const msg = freshCtx?.chat?.[index];
+      
+      console.log('[TSI-MW] Message:', {
+        is_user: msg?.is_user,
+        name: msg?.name,
+        mes_preview: msg?.mes?.substring(0, 150)
+      });
       
       // Ignore user messages
       if (msg.is_user) return;
       
       // Look for check request pattern
-      const checkMatch = msg.mes.match(/\[CHECK\s+skill=(\w+)\s+difficulty=(\w+)\s+reason="([^"]+)"\]/);
-      console.log('[TSI-MW] Check match result:', checkMatch);
+      const checkMatch = msg.mes?.match(/\[CHECK\s+skill=(\w+)\s+difficulty=(\w+)\s+reason="([^"]+)"\s*\]/);
+      console.log('[TSI-MW] Check match:', checkMatch ? 'FOUND' : 'none');
       
       if (checkMatch) {
         const [_, skill, difficulty, reason] = checkMatch;

@@ -480,11 +480,19 @@
     const et = ctx.event_types || ctx.eventTypes;
     
     es.on(et.MESSAGE_RECEIVED || 'message_received', (msg) => {
+      console.log('[TSI-MW] MESSAGE_RECEIVED:', {
+        is_user: msg.is_user,
+        name: msg.name,
+        mes_preview: msg.mes?.substring(0, 100)
+      });
+      
       // Ignore user messages
       if (msg.is_user) return;
       
       // Look for check request pattern
       const checkMatch = msg.mes.match(/\[CHECK\s+skill=(\w+)\s+difficulty=(\w+)\s+reason="([^"]+)"\]/);
+      console.log('[TSI-MW] Check match result:', checkMatch);
+      
       if (checkMatch) {
         const [_, skill, difficulty, reason] = checkMatch;
         console.log('[TSI-MW] Detected check request:', { skill, difficulty, reason });

@@ -27,6 +27,13 @@ app = Flask(__name__)
 # allow all origins for quick local testing; tighten later if you want
 CORS(app, resources={r"/check": {"origins": "*"}}, supports_credentials=False)
 
+@app.route("/pc.json", methods=["GET"])
+def get_pc():
+    """Serve the PC data file"""
+    if PC_DATA is None:
+        return jsonify({"error": "Character data not loaded"}), 500
+    return jsonify([PC_DATA])  # Return as array to match pc.json format
+    
 @app.route("/check", methods=["POST", "OPTIONS"])
 def check():
     if request.method == "OPTIONS":

@@ -1,7 +1,27 @@
 # middleware.py
+import json
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime
+
+# Load character data
+PC_FILE = 'pc.json'
+
+def load_pc_data():
+    # Load the player character data from pc.json
+    if not os.path.exists(PC_FILE):
+        print(f"Warning: {PC_FILE} not found")
+        return None
+
+    with open(PC_FILE, 'r') as f:
+        data = json.load (f)
+        # pc.json contains an array, get first character
+        if isinstance(data, list) and len(data) > 0:
+            return data[0]
+        return data
+
+PC_DATA = load_pc_data()
 
 app = Flask(__name__)
 # allow all origins for quick local testing; tighten later if you want
@@ -14,17 +34,40 @@ def check():
         return ("", 200)
 
     data = request.get_json(force=True)
-    character = data.get("character", "Unknown")
-    skill = data.get("skill", "Unknown")
-    threshold = int(data.get("threshold", 0))
-    roll = int(data.get("roll", 0))
 
+    # Get skill and roll from request
+    skill_name = data.get("skill", "Unknown")
+    roll = int(data.get("roll", -1))
+
+    if PC_DATA is None:
+        return jsonify({"ok": False, "error": "Character data not loaded"}), 500
+
+    skill_data = PC_DATA.get("skills", {}).get(skill_name)
+    if not skill_data:
+        return jsonify({"ok": False, "error": f"Skill {skill_name} not found on character}), 400
+
+    # Calculate threshold: base + {level *5}
+    # Assuming skill_data is like: {"level": 0, "base": 45}
+    if isinstance(skill_data, dict):
+        base = skill_data.get("base", 0)
+        level = skill_data.get("level", 0)
+        threshold = base + (level * 5)
+    else:
+        # Fallback for old format where skill is just a number
+        threshold = int(skill_data)
+
+    # Apply modifier from frontend (situational difficulty)
+    modifier = int(data.get("modifier", 0))
+    threshold = max(0, min(100, threshold + modifier)
+    
+    characther_name = PC_DATA.get("name", "Unknown")
+    
     success = roll <= threshold
     margin = abs(threshold - roll)
 
-    if roll <= 5:
+    if roll <= 4:
         quality = "crit"
-    elif roll >= 96:
+    elif roll >= 95:
         quality = "fumble"
     else:
         quality = "normal"

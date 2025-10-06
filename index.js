@@ -2,6 +2,39 @@
 (() => {
   const MOD = 'TSI-MW';
 
+  const SKILL_CHECK_FUNCTION = {
+    name: 'request_skill_check',
+    description: 'Request a skill check from the player when the narrative situation requires testing their abilities',
+    parameters: {
+      type: 'object',
+      properties: {
+        skill: {
+          type: 'string',
+          description: 'The skill being tested (e.g., "Surveillance", "Disguise", "Firearms")'
+        },
+        difficulty: {
+          type: 'string',
+          enum: ['trivial', 'routine', 'standard', 'challenging', 'formidable', 'desperate'],
+          description: 'Difficulty assessment: trivial (+10), routine (+5), standard (0), challenging (-5), formidable (-10), desperate (-20)'
+        },
+        reason: {
+          type: 'string',
+          description: 'Brief explanation of why the check is needed and what conditions affect difficulty'
+        }
+      },
+      required: ['skill', 'difficulty', 'reason']
+    }
+  };
+  
+  const DIFFICULTY_MODIFIERS = {
+    'trivial': 10,
+    'routine': 5,
+    'standard': 0,
+    'challenging': -5,
+    'formidable': -10,
+    'desperate': -20
+  };
+  
   // ---------------------------
   // Boot: wait for SillyTavern
   // ---------------------------
@@ -15,7 +48,6 @@
       const es = ctx.eventSource;
       const et = ctx.event_types || ctx.eventTypes;
 
-      // If app is already ready, go now; otherwise subscribe
       if (ctx.isAppReady || document.querySelector('#send_but') || document.querySelector('#form_say')) {
         try { cb(ctx); } catch (e) { console.error(`[${MOD}] init error`, e); }
       } else {
@@ -41,16 +73,19 @@
     style.id = 'tsimw-styles';
     style.textContent = `
 #tsimw-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:10000;}
-#tsimw-modal{background:#1e1e1e;color:#eee;padding:20px;border-radius:12px;width:520px;max-width:92vw;border:1px solid #3a3a3a;box-shadow:0 12px 30px rgba(0,0,0,.35);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;}
+#tsimw-modal{background:#1e1e1e;color:#eee;padding:20px;border-radius:12px;width:540px;max-width:92vw;border:1px solid #3a3a3a;box-shadow:0 12px 30px rgba(0,0,0,.35);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;}
 #tsimw-modal h3{margin:0 0 12px;font-size:18px}
 #tsimw-modal .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
+#tsimw-modal .full-row{display:block;margin-bottom:10px}
 #tsimw-modal label{display:block;font-size:12px;font-weight:600;margin:0 0 4px}
-#tsimw-modal input,#tsimw-modal select,#tsimw-modal textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #555;background:#2a2a2a;color:#eee}
+#tsimw-modal input,#tsimw-modal select,#tsimw-modal textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #555;background:#2a2a2a;color:#eee;box-sizing:border-box}
+#tsimw-modal input:read-only{background:#1a1a1a;color:#888}
 #tsimw-modal textarea{resize:vertical;min-height:64px}
 #tsimw-modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
 #tsimw-modal button{padding:8px 12px;border-radius:8px;border:0;cursor:pointer;font-weight:700}
 #tsimw-cancel{background:#555;color:#fff}
 #tsimw-submit{background:#007bff;color:#fff}
+#tsimw-saveurl{background:#444;color:#fff;width:100%}
 #tsimw-fab{position:fixed;right:14px;bottom:14px;z-index:9999;padding:8px 14px;border-radius:18px;font-size:13px;font-weight:700;background:#007bff;color:#fff;border:0;box-shadow:0 6px 16px rgba(0,0,0,.35);cursor:pointer}
 #tsimw-fab:hover{filter:brightness(1.07)}
 `;
@@ -63,7 +98,6 @@
   function nowStamp() { return new Date().toISOString(); }
 
   function loadConfig() {
-    // Support both old and new keys
     try {
       const raw =
         localStorage.getItem('tsi-mw-config') ??
@@ -99,7 +133,6 @@
   // ---------------------------
   function forceRender(ctx) {
     try {
-      // It's a method on the context object!
       if (typeof ctx?.printMessages === 'function') {
         ctx.printMessages();
         console.log('[TSI-MW] Rendered via ctx.printMessages');
@@ -116,7 +149,6 @@
 
   async function triggerGeneration(ctx) {
     try {
-      // Clear any text in the input box first
       const textarea = document.getElementById('send_textarea') || 
                        document.querySelector('#form_say textarea');
       if (textarea) {
@@ -168,16 +200,28 @@
 
       <div class="row">
         <div>
-          <label for="tsimw-threshold">Threshold %</label>
-          <input id="tsimw-threshold" type="number" min="0" max="100"/>
+          <label for="tsimw-threshold">Base Threshold %</label>
+          <input id="tsimw-threshold" type="number" min="0" max="100" readonly/>
         </div>
+        <div>
+          <label for="tsimw-modifier">Situation Modifier</label>
+          <input id="tsimw-modifier" type="number" step="5" value="0" 
+                 title="Difficulty adjustment (+10 trivial to -20 desperate)"/>
+        </div>
+      </div>
+
+      <div class="row">
         <div>
           <label for="tsimw-roll">Roll (d%)</label>
           <input id="tsimw-roll" type="number" min="1" max="100"/>
         </div>
+        <div>
+          <label for="tsimw-final">Final Threshold</label>
+          <input id="tsimw-final" type="number" readonly style="font-weight:700;color:#4af"/>
+        </div>
       </div>
 
-      <div>
+      <div class="full-row">
         <label for="tsimw-reason">Reason / Context (optional)</label>
         <textarea id="tsimw-reason" placeholder="e.g., Shadow the courier through the bazaar"></textarea>
       </div>
@@ -205,6 +249,8 @@
     const charSel   = modal.querySelector('#tsimw-char');
     const skillSel  = modal.querySelector('#tsimw-skill');
     const thrInput  = modal.querySelector('#tsimw-threshold');
+    const modInput  = modal.querySelector('#tsimw-modifier');
+    const finalInput = modal.querySelector('#tsimw-final');
     const rollInput = modal.querySelector('#tsimw-roll');
     const reason    = modal.querySelector('#tsimw-reason');
     const urlInput  = modal.querySelector('#tsimw-url');
@@ -213,6 +259,14 @@
     urlInput.value = cfg.httpUrl || '';
 
     const chars = loadCharacters();
+    
+    function updateFinalThreshold() {
+      const base = Number(thrInput.value) || 0;
+      const mod = Number(modInput.value) || 0;
+      const final = Math.max(0, Math.min(100, base + mod));
+      finalInput.value = final;
+    }
+
     function fillChars() {
       charSel.innerHTML = '';
       chars.forEach((c, i) => {
@@ -222,6 +276,7 @@
         charSel.appendChild(opt);
       });
     }
+    
     function fillSkills() {
       skillSel.innerHTML = '';
       const c = chars[Number(charSel.value) || 0] || { skills: {} };
@@ -229,6 +284,7 @@
       if (!entries.length) {
         skillSel.innerHTML = `<option value="">(No skills)</option>`;
         thrInput.value = '';
+        updateFinalThreshold();
         return;
       }
       for (const [name, pct] of entries) {
@@ -239,13 +295,18 @@
         skillSel.appendChild(opt);
       }
       thrInput.value = skillSel.options[0]?.dataset?.pct || '';
+      updateFinalThreshold();
     }
-    fillChars(); fillSkills();
+    
+    fillChars(); 
+    fillSkills();
 
     charSel.addEventListener('change', fillSkills);
     skillSel.addEventListener('change', () => {
       thrInput.value = skillSel.options[skillSel.selectedIndex]?.dataset?.pct || '';
+      updateFinalThreshold();
     });
+    modInput.addEventListener('input', updateFinalThreshold);
 
     modal.querySelector('#tsimw-cancel').onclick = () => (backdrop.style.display = 'none');
     modal.querySelector('#tsimw-saveurl').onclick = () => {
@@ -254,26 +315,39 @@
     };
     modal.querySelector('#tsimw-submit').onclick = async () => {
       const c = chars[Number(charSel.value) || 0];
-      if (!c || !skillSel.value) { ctx.addToast?.('Select a character and skill.'); return; }
+      if (!c || !skillSel.value) { 
+        ctx.addToast?.('Select a character and skill.'); 
+        return; 
+      }
+      
+      const finalThreshold = Number(finalInput.value);
+      const roll = Math.max(1, Math.min(100, Number(rollInput.value || 0)));
+      
+      if (roll === 0) {
+        ctx.addToast?.('Please enter a roll value (1-100).');
+        return;
+      }
+      
       await sendCheck(ctx, {
         type: 'check',
         character: c.name || 'Unknown',
         skill: skillSel.value,
-        threshold: Math.max(0, Math.min(100, Number(thrInput.value || 0))),
-        roll: Math.max(1, Math.min(100, Number(rollInput.value || 0))),
+        threshold: finalThreshold,
+        roll: roll,
         reason: (reason.value || '').trim(),
       });
       backdrop.style.display = 'none';
     };
 
     modal.__open = () => { backdrop.style.display = 'flex'; };
-    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; });
+    backdrop.addEventListener('click', (e) => { 
+      if (e.target === backdrop) backdrop.style.display = 'none'; 
+    });
 
     return modal;
   }
 
-  function openModal(ctx) {
-    // Guard: only when a chat UI exists (avoid opening from card editor)
+  function openModal(ctx, request = null) {
     const hasChatUI = document.querySelector('#send_but') || document.querySelector('#form_say');
     if (!hasChatUI) {
       ctx.addToast?.('TSI-MW: Open a chat (e.g., The Administrator) first, then run Skill Check.');
@@ -281,6 +355,38 @@
     }
     injectStyles();
     const modal = buildModal(ctx);
+    
+    if (request) {
+      const skillSel = modal.querySelector('#tsimw-skill');
+      const modInput = modal.querySelector('#tsimw-modifier');
+      const reason = modal.querySelector('#tsimw-reason');
+      
+      if (skillSel && request.skill) {
+        for (let opt of skillSel.options) {
+          if (opt.value === request.skill) {
+            opt.selected = true;
+            skillSel.dispatchEvent(new Event('change'));
+            break;
+          }
+        }
+      }
+      
+      if (modInput && request.difficulty) {
+        const modifier = DIFFICULTY_MODIFIERS[request.difficulty] || 0;
+        modInput.value = modifier;
+        modInput.dispatchEvent(new Event('input'));
+      }
+      
+      if (reason && request.reason) {
+        reason.value = request.reason;
+      }
+      
+      const difficultyText = request.difficulty || 'standard';
+      const modifier = DIFFICULTY_MODIFIERS[difficultyText] || 0;
+      const modText = modifier >= 0 ? `+${modifier}` : `${modifier}`;
+      ctx.addToast?.(`The Administrator requests ${request.skill} check (${difficultyText}: ${modText})`);
+    }
+    
     modal.__open();
   }
 
@@ -288,7 +394,6 @@
   // Middleware call
   // ---------------------------
   async function sendCheck(ctx, check) {
-    // Get fresh context
     const freshCtx = window.SillyTavern?.getContext?.() || ctx;
     
     const url = (loadConfig().httpUrl || '').trim();
@@ -297,7 +402,6 @@
       return; 
     }
   
-    // Push initial request message (don't render yet)
     pushSilent(freshCtx,
       `[CHECK who=${check.character} skill=${check.skill} reason="${check.reason.replace(/"/g, "'")}"]` +
       `\nRolled **${check.roll}** vs **${check.threshold}%** — sending to rules engine…`,
@@ -319,7 +423,6 @@
       const s = data.success ? 'SUCCESS' : 'FAILURE';
       const tag = `[CHECK_RESULT who=${check.character} skill=${check.skill} roll=${check.roll} vs=${check.threshold} result=${s}${data.quality ? ` quality=${data.quality}` : ''}]`;
   
-      // Push result messages (still don't render)
       pushSilent(freshCtx, tag, {
         name: freshCtx?.name2 || 'The Administrator',
         extra: { module: 'tsi-middleware', kind: 'check_result_raw' } 
@@ -334,10 +437,7 @@
         }
       );
       
-      // NOW render everything at once
       forceRender(freshCtx);
-
-      // Wait a brief moment for render to complete, then trigger generation
       setTimeout(() => triggerGeneration(freshCtx), 100);
       
     } catch (e) {
@@ -347,12 +447,10 @@
         extra: { module: 'tsi-middleware', kind: 'check_error' } 
       });
       forceRender(freshCtx);
-      // Wait a brief moment for render to complete, then trigger generation
       setTimeout(() => triggerGeneration(freshCtx), 100);
     }
   }
   
-  // New function: push without rendering
   function pushSilent(ctx, textOrMsg, opts = {}) {
     const { eventSource, event_types } = ctx;
     const base = (typeof textOrMsg === 'string') ? { mes: textOrMsg } : (textOrMsg || {});
@@ -401,18 +499,25 @@
     injectStyles();
     addFab(ctx);
 
-    // Force paint when a chat loads (in case anything was injected before UI painted)
-    const es = ctx.eventSource;
-    const et = ctx.event_types || ctx.eventTypes;
-    // es.on(et.chatLoaded || 'chatLoaded', () => {
-    //  const freshCtx = window.SillyTavern?.getContext?.();
-    //  if (freshCtx) {
-    //    console.log(`[${MOD}] chatLoaded → force render`);
-    //    forceRender(freshCtx);
-    //  }
-    // });
+    // Register function calling tool
+    if (ctx.registerFunctionTool) {
+      ctx.registerFunctionTool(
+        SKILL_CHECK_FUNCTION.name,
+        async (args) => {
+          console.log('[TSI-MW] Function called with:', args);
+          await openModal(ctx, args);
+          return {
+            success: true,
+            message: 'Skill check modal opened. Awaiting player input.'
+          };
+        },
+        SKILL_CHECK_FUNCTION
+      );
+      console.log('[TSI-MW] Registered function tool:', SKILL_CHECK_FUNCTION.name);
+    } else {
+      console.warn('[TSI-MW] registerFunctionTool not available - function calling disabled');
+    }
 
-    // Expose console helpers again
     globalThis.TSIMW = {
       open: () => openModal(ctx),
       setCharacters: saveCharacters,
@@ -421,7 +526,6 @@
       getConfig: loadConfig,
     };
 
-    // First-run hint
     try {
       const cfg = loadConfig();
       if (!cfg.httpUrl) ctx.addToast?.('TSI-MW: Set your middleware URL in the modal.');

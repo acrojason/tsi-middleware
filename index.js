@@ -89,7 +89,35 @@
     localStorage.setItem('tsi-mw-config', JSON.stringify(clean));
   }
 
-  function loadCharacters() {
+  async function loadCharactersFromServer() {
+    const cfg = loadConfig();
+    const baseUrl = cfg.httpUrl.replace('/check', ''); // Get base URL
+    
+    try {
+      const res = await fetch(`${baseUrl}/pc.json`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      
+      const data = await res.json();
+      console.log('[TSI-MW] Loaded characters from server:', data);
+      
+      if (Array.isArray(data) && data.length > 0) {
+        // Transform skill format for modal compatibility
+        const chars = data.map(pc => ({
+          name: pc.name,
+          skills: transformSkills(pc.skills)
+        }));
+        saveCharacters(chars);
+        return chars;
+      }
+    } catch (e) {
+      console.warn('[TSI-MW] Could not load pc.json from server:', e);
+    }
+    
+    // Fallback to localStorage
+    return loadCharactersFromLocalStorage();
+  }
+  
+  function loadCharactersFromLocalStorage() {
     try {
       const raw =
         localStorage.getItem('tsi-mw-characters') ??
@@ -97,13 +125,24 @@
       if (raw) return JSON.parse(raw);
     } catch {}
     const def = [{ name: 'Agent Drake', skills: { Surveillance: 62 } }];
-    localStorage.setItem('tsi-mw-characters', JSON.stringify(def));
+    saveCharacters(def);
     return def;
   }
-  function saveCharacters(arr) {
-    localStorage.setItem('tsi-mw-characters', JSON.stringify(arr || []));
-  }
 
+  function transformSkills(skills) {
+    // Convert {Surveillance: {level: 0, base: 45}} to {Surveillance: 45}
+    // for modal display (modal shows base value)
+    const transformed = {};
+    for (const [name, data] of Object.entries(skills || {})) {
+      if (typeof data === 'object' && data.base !== undefined) {
+        transformed[name] = data.base;
+      } else {
+        transformed[name] = data;
+      }
+    }
+    return transformed;
+  }
+  
   // ---------------------------
   // Chat injection
   // ---------------------------

@@ -188,7 +188,7 @@
   // ---------------------------
   // Modal
   // ---------------------------
-  function buildModal(ctx) {
+  async function buildModal(ctx) {
     let backdrop = document.getElementById('tsimw-modal-backdrop');
     let modal = document.getElementById('tsimw-modal');
     if (backdrop && modal) return modal;
@@ -273,7 +273,7 @@
     const cfg = loadConfig();
     urlInput.value = cfg.httpUrl || '';
 
-    const chars = loadCharacters();
+    const chars = await loadCharactersFromServer();
     
     function updateFinalThreshold() {
       const base = Number(thrInput.value) || 0;
@@ -361,14 +361,14 @@
     return modal;
   }
 
-  function openModal(ctx, request = null) {
+  async function openModal(ctx, request = null) {
     const hasChatUI = document.querySelector('#send_but') || document.querySelector('#form_say');
     if (!hasChatUI) {
       ctx.addToast?.('TSI-MW: Open a chat (e.g., The Administrator) first, then run Skill Check.');
       return;
     }
     injectStyles();
-    const modal = buildModal(ctx);
+    const modal = await buildModal(ctx);
     
     if (request) {
       const skillSel = modal.querySelector('#tsimw-skill');

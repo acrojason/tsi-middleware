@@ -143,6 +143,10 @@
     return transformed;
   }
   
+  function saveCharacters(arr) {
+    localStorage.setItem('tsi-mw-characters', JSON.stringify(arr || []));
+  }
+  
   // ---------------------------
   // Chat injection
   // ---------------------------

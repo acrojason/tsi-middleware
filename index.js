@@ -554,7 +554,7 @@
     globalThis.TSIMW = {
       open: () => openModal(ctx),
       setCharacters: saveCharacters,
-      getCharacters: loadCharacters,
+      getCharacters: loadCharactersfromServer,
       setConfig: saveConfig,
       getConfig: loadConfig,
     };

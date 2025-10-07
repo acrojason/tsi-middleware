@@ -332,7 +332,16 @@
     });
     modInput.addEventListener('input', updateFinalThreshold);
 
-    modal.querySelector('#tsimw-cancel').onclick = () => (backdrop.style.display = 'none');
+    modal.querySelector('#tsimw-cancel').onclick = () => {
+      backdrop.style.display = 'none';
+      
+      // Re-enable controls
+      const sendBtn = document.getElementById('send_but');
+      const textarea = document.getElementById('send_textarea') || 
+                       document.querySelector('#form_say textarea');
+      if (sendBtn) sendBtn.disabled = false;
+      if (textarea) textarea.disabled = false;
+    };
     modal.querySelector('#tsimw-saveurl').onclick = () => {
       saveConfig({ httpUrl: urlInput.value.trim() });
       ctx.addToast?.('TSI-MW: URL saved');
@@ -347,19 +356,27 @@
       const finalThreshold = Number(finalInput.value);
       const roll = Math.max(1, Math.min(100, Number(rollInput.value || 0)));
       
-      if (roll === 0) {
-        ctx.addToast?.('Please enter a roll value (1-100).');
+      if (roll === 100) {
+        ctx.addToast?.('Please enter a roll value (0-99).');
         return;
       }
+      
+      backdrop.style.display = 'none';
+  
+      // Re-enable controls
+      const sendBtn = document.getElementById('send_but');
+      const textarea = document.getElementById('send_textarea') || 
+                       document.querySelector('#form_say textarea');
+      if (sendBtn) sendBtn.disabled = false;
+      if (textarea) textarea.disabled = false;
       
       await sendCheck(ctx, {
         type: 'check',
         skill: skillSel.value,
         roll: roll,
-        modifier: Number(modInput.value || 0),  // Situational modifier
+        modifier: Number(modInput.value || 0),
         reason: (reason.value || '').trim(),
       });
-      backdrop.style.display = 'none';
     };
 
     modal.__open = () => { backdrop.style.display = 'flex'; };
@@ -539,7 +556,7 @@
       });
       
       // Ignore user messages
-      if (msg.is_user) return;
+      if (!msg || msg.is_user) return;
       
       // Look for check request pattern
       const checkMatch = msg.mes?.match(/\[CHECK\s+skill=(\w+)\s+difficulty=(\w+)\s+reason="([^"]+)"\s*\]/);
@@ -548,17 +565,23 @@
       if (checkMatch) {
         const [_, skill, difficulty, reason] = checkMatch;
         console.log('[TSI-MW] Detected check request:', { skill, difficulty, reason });
-
-        // Prevent auto-continue by setting a flag or disabling send button
+        
+        // CRITICAL: Stop SillyTavern from auto-generating
         const sendBtn = document.getElementById('send_but');
+        const textarea = document.getElementById('send_textarea') || 
+                         document.querySelector('#form_say textarea');
+        
         if (sendBtn) {
           sendBtn.disabled = true;
-          console.log('[TSI-MW] Disabled send button to prevent auto-generation');
+          console.log('[TSI-MW] Disabled send button');
+        }
+        if (textarea) {
+          textarea.disabled = true;
+          console.log('[TSI-MW] Disabled textarea');
         }
         
-        // Auto-open modal with pre-filled data
+        // Open modal immediately
         openModal(freshCtx, { skill, difficulty, reason });
-        
       }
     });
 

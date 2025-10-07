@@ -543,11 +543,17 @@
       if (checkMatch) {
         const [_, skill, difficulty, reason] = checkMatch;
         console.log('[TSI-MW] Detected check request:', { skill, difficulty, reason });
+
+        // Prevent auto-continue by setting a flag or disabling send button
+        const sendBtn = document.getElementById('send_but');
+        if (sendBtn) {
+          sendBtn.disabled = true;
+          console.log('[TSI-MW] Disabled send button to prevent auto-generation');
+        }
         
         // Auto-open modal with pre-filled data
-        setTimeout(() => {
-          openModal(ctx, { skill, difficulty, reason });
-        }, 500);
+        openModal(freshCtx, { skill, difficulty, reason });
+        
       }
     });
 

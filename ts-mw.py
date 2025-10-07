@@ -67,7 +67,7 @@ def check():
     modifier = int(data.get("modifier", 0))
     threshold = max(0, min(100, threshold + modifier))
     
-    characther_name = PC_DATA.get("name", "Unknown")
+    character_name = PC_DATA.get("name", "Unknown")
     
     success = roll <= threshold
     margin = abs(threshold - roll)

@@ -25,7 +25,7 @@ PC_DATA = load_pc_data()
 
 app = Flask(__name__)
 # allow all origins for quick local testing; tighten later if you want
-CORS(app, resources={r"/check": {"origins": "*"}}, supports_credentials=False)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 
 @app.route("/pc.json", methods=["GET"])
 def get_pc():

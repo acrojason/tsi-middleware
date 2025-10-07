@@ -92,16 +92,20 @@
   async function loadCharactersFromServer() {
     const cfg = loadConfig();
     const baseUrl = cfg.httpUrl.replace('/check', ''); // Get base URL
+    const url = `${baseUrl}/pc.json`;
+
+    console.log('[TSI-MW] Attempting to load from:', url);
     
     try {
-      const res = await fetch(`${baseUrl}/pc.json`);
+      const res = await fetch(url);
+      console.log('[TSI-MW] Fetch response:', res.status, res.statusText);
+      
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
       const data = await res.json();
       console.log('[TSI-MW] Loaded characters from server:', data);
       
       if (Array.isArray(data) && data.length > 0) {
-        // Transform skill format for modal compatibility
         const chars = data.map(pc => ({
           name: pc.name,
           skills: transformSkills(pc.skills)
@@ -110,7 +114,8 @@
         return chars;
       }
     } catch (e) {
-      console.warn('[TSI-MW] Could not load pc.json from server:', e);
+      console.error('[TSI-MW] Could not load pc.json from server:', e);
+      console.log('[TSI-MW] URL attempted:', url);
     }
     
     // Fallback to localStorage

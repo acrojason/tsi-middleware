@@ -363,12 +363,8 @@
       
       backdrop.style.display = 'none';
   
-      // Re-enable controls
-      const sendBtn = document.getElementById('send_but');
-      const textarea = document.getElementById('send_textarea') || 
-                       document.querySelector('#form_say textarea');
-      if (sendBtn) sendBtn.disabled = false;
-      if (textarea) textarea.disabled = false;
+      // Clear blocking flag
+      window._tsimw_awaiting_check = false;
       
       await sendCheck(ctx, {
         type: 'check',
@@ -571,20 +567,29 @@
         const textarea = document.getElementById('send_textarea') || 
                          document.querySelector('#form_say textarea');
         
-        if (sendBtn) {
-          sendBtn.disabled = true;
-          console.log('[TSI-MW] Disabled send button');
-        }
-        if (textarea) {
-          textarea.disabled = true;
-          console.log('[TSI-MW] Disabled textarea');
-        }
+        // Set a flag that generation is blocked
+        freshCtx.generationBlocked = true;
+        window._tsimw_awaiting_check = true;
         
         // Open modal immediately
         openModal(freshCtx, { skill, difficulty, reason });
       }
     });
 
+    // Block generation when waiting for check
+    es.on(et.GENERATION_STARTED || 'generation_started', () => {
+      if (window._tsimw_awaiting_check) {
+        console.log('[TSI-MW] Blocking auto-generation - awaiting check result');
+        
+        // Try to abort the generation
+        if (typeof abortGeneration === 'function') {
+          abortGeneration();
+        }
+        
+        return false;
+      }
+    });
+    
     globalThis.TSIMW = {
       open: () => openModal(ctx),
       setCharacters: saveCharacters,

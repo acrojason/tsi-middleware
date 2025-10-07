@@ -79,7 +79,7 @@ def check():
     else:
         quality = "normal"
 
-    details = f"{character} attempted {skill} with a roll of {roll} vs {threshold}."
+    details = f"{name} attempted {skill} with a roll of {roll} vs {threshold}."
 
     return jsonify({
         "type": "check_result",

@@ -93,7 +93,7 @@
     const cfg = loadConfig();
     const baseUrl = cfg.httpUrl.replace('/check', ''); // Get base URL
     const url = `${baseUrl}/pc.json`;
-
+  
     console.log('[TSI-MW] Attempting to load from:', url);
     
     try {
@@ -108,8 +108,9 @@
       if (Array.isArray(data) && data.length > 0) {
         const chars = data.map(pc => ({
           name: pc.name,
-          skills: transformSkills(pc.skills)
+          skills: transformSkills(pc)  // Pass full pc object, not pc.skills
         }));
+        console.log('[TSI-MW] Transformed characters:', chars);  // Debug log
         saveCharacters(chars);
         return chars;
       }
@@ -134,20 +135,25 @@
     return def;
   }
 
-  function transformSkills(pcData) {
+function transformSkills(pc) {
     // Use pre-calculated skills from server if available
-    if (pcData.calculated_skills) {
+    if (pc.calculated_skills) {
+      console.log('[TSI-MW] Using calculated_skills:', pc.calculated_skills);
       const transformed = {};
-      for (const [name, data] of Object.entries(pcData.calculated_skills)) {
+      for (const [name, data] of Object.entries(pc.calculated_skills)) {
         transformed[name] = data.base;  // Use calculated base threshold
       }
+      console.log('[TSI-MW] Transformed skills:', transformed);
       return transformed;
     }
     
-    // Fallback to raw skills
+    // Fallback: if no calculated_skills, just return raw skills as numbers
+    console.log('[TSI-MW] Falling back to raw skills');
     const transformed = {};
-    for (const [name, level] of Object.entries(pcData.skills || {})) {
-      transformed[name] = level;
+    for (const [name, level] of Object.entries(pc.skills || {})) {
+      // For raw skills, we'd need to calculate threshold client-side
+      // For now, just use a placeholder
+      transformed[name] = 50;  // Placeholder
     }
     return transformed;
   }

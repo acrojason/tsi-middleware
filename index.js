@@ -134,16 +134,20 @@
     return def;
   }
 
-  function transformSkills(skills) {
-    // Convert {Surveillance: {level: 0, base: 45}} to {Surveillance: 45}
-    // for modal display (modal shows base value)
-    const transformed = {};
-    for (const [name, data] of Object.entries(skills || {})) {
-      if (typeof data === 'object' && data.base !== undefined) {
-        transformed[name] = data.base;
-      } else {
-        transformed[name] = data;
+  function transformSkills(pcData) {
+    // Use pre-calculated skills from server if available
+    if (pcData.calculated_skills) {
+      const transformed = {};
+      for (const [name, data] of Object.entries(pcData.calculated_skills)) {
+        transformed[name] = data.base;  // Use calculated base threshold
       }
+      return transformed;
+    }
+    
+    // Fallback to raw skills
+    const transformed = {};
+    for (const [name, level] of Object.entries(pcData.skills || {})) {
+      transformed[name] = level;
     }
     return transformed;
   }
